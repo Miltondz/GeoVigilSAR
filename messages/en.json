@@ -1,0 +1,84 @@
+{
+  "header": {
+    "title": "GEOVIGIL SAR",
+    "activeEvent": "ACTIVE EVENT",
+    "live": "LIVE",
+    "layers": "LAYERS",
+    "export": "EXPORT",
+    "settings": "SETTINGS"
+  },
+  "stats": {
+    "activeEvent": "ACTIVE EVENT",
+    "confirmedFatalities": "CONFIRMED FATALITIES",
+    "injured": "INJURED",
+    "aftershocks": "REGISTERED AFTERSHOCKS",
+    "lastAftershock": "LAST AFTERSHOCK",
+    "dataStream": "DATA STREAM",
+    "ago": "ago"
+  },
+  "layers": {
+    "title": "MAP LAYERS",
+    "seismic": "SEISMIC LAYERS",
+    "epicenters": "Epicenters",
+    "aftershocks": "Real-time aftershocks",
+    "shakemap": "ShakeMap — PGA Intensity",
+    "faults": "Geological faults",
+    "seismicHistory": "Seismic history (1900–2025)",
+    "satellite": "SATELLITE LAYERS",
+    "sarChange": "SAR Change Detection — Sentinel-1",
+    "opticalPre": "Optical before — Sentinel-2",
+    "opticalPost": "Optical after — Sentinel-2",
+    "sarLband": "SAR L-band — ALOS-2",
+    "ariaDPM": "ARIA Damage Proxy Map",
+    "firms": "Heat sources — NASA FIRMS",
+    "humanitarian": "HUMANITARIAN LAYERS",
+    "damagePoints": "Confirmed damage points",
+    "hospitals": "Hospitals and medical centers",
+    "shelters": "Active shelters",
+    "evacRoutes": "Evacuation routes",
+    "noAccess": "No-access zones",
+    "context": "CONTEXT LAYERS",
+    "buildings": "OpenStreetMap buildings",
+    "population": "Population density",
+    "geoNews": "Geolocated news (GDELT)"
+  },
+  "ai": {
+    "panelTitle": "SYSTEM / SISTEMA",
+    "model": "Model",
+    "ready": "Ready.",
+    "eventLoaded": "Event {eventId} loaded.",
+    "aftershocksIndexed": "{count} aftershocks indexed.",
+    "activeSources": "Active sources: USGS, GDELT, ReliefWeb, Copernicus EMS.",
+    "inputPlaceholder": "Type a question...",
+    "suggestedQueries": [
+      "Which zones have highest aftershock risk?",
+      "What are media reporting about La Guaira?",
+      "How many people have been rescued?"
+    ]
+  },
+  "comparator": {
+    "pre": "PRE",
+    "post": "POST",
+    "satellite": "SENTINEL-2",
+    "streetLevel": "MAPILLARY (street level)",
+    "associatedNews": "ASSOCIATED NEWS",
+    "close": "CLOSE",
+    "export": "EXPORT",
+    "status": {
+      "collapsed": "COLLAPSED",
+      "damaged": "DAMAGED",
+      "unknown": "UNKNOWN"
+    },
+    "confidence": "Sentinel-1 confidence"
+  },
+  "timeline": {
+    "pre": "PRE",
+    "post": "POST",
+    "mainEvent": "MAIN EVENT"
+  },
+  "errors": {
+    "mapLoad": "Error loading map",
+    "dataFetch": "Error fetching data",
+    "aiError": "AI system error. Please try again."
+  }
+}

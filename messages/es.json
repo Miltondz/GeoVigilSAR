@@ -1,0 +1,84 @@
+{
+  "header": {
+    "title": "GEOVIGIL SAR",
+    "activeEvent": "EVENTO ACTIVO",
+    "live": "EN VIVO",
+    "layers": "CAPAS",
+    "export": "EXPORTAR",
+    "settings": "CONFIGURACIÓN"
+  },
+  "stats": {
+    "activeEvent": "EVENTO ACTIVO",
+    "confirmedFatalities": "BAJAS CONFIRMADAS",
+    "injured": "HERIDOS",
+    "aftershocks": "RÉPLICAS REGISTRADAS",
+    "lastAftershock": "ÚLTIMA RÉPLICA",
+    "dataStream": "FLUJO DE DATOS",
+    "ago": "hace"
+  },
+  "layers": {
+    "title": "CAPAS DEL MAPA",
+    "seismic": "CAPAS SÍSMICAS",
+    "epicenters": "Epicentros",
+    "aftershocks": "Réplicas en tiempo real",
+    "shakemap": "ShakeMap — Intensidad PGA",
+    "faults": "Fallas geológicas",
+    "seismicHistory": "Historial sísmico (1900–2025)",
+    "satellite": "CAPAS SATELITALES",
+    "sarChange": "SAR Change Detection — Sentinel-1",
+    "opticalPre": "Óptico antes — Sentinel-2",
+    "opticalPost": "Óptico después — Sentinel-2",
+    "sarLband": "SAR L-band — ALOS-2",
+    "ariaDPM": "ARIA Damage Proxy Map",
+    "firms": "Focos de calor — NASA FIRMS",
+    "humanitarian": "CAPAS HUMANITARIAS",
+    "damagePoints": "Puntos de daño confirmado",
+    "hospitals": "Hospitales y centros médicos",
+    "shelters": "Refugios activos",
+    "evacRoutes": "Rutas de evacuación",
+    "noAccess": "Zonas sin acceso",
+    "context": "CAPAS DE CONTEXTO",
+    "buildings": "Edificios OpenStreetMap",
+    "population": "Densidad poblacional",
+    "geoNews": "Noticias geolocalizadas (GDELT)"
+  },
+  "ai": {
+    "panelTitle": "SISTEMA / SYSTEM",
+    "model": "Modelo",
+    "ready": "Listo.",
+    "eventLoaded": "Evento {eventId} cargado.",
+    "aftershocksIndexed": "{count} réplicas indexadas.",
+    "activeSources": "Fuentes activas: USGS, GDELT, ReliefWeb, Copernicus EMS.",
+    "inputPlaceholder": "Escribe una pregunta...",
+    "suggestedQueries": [
+      "¿Qué zonas tienen mayor riesgo de réplica?",
+      "¿Qué reportan los medios sobre La Guaira?",
+      "¿Cuántas personas han sido rescatadas?"
+    ]
+  },
+  "comparator": {
+    "pre": "PRE",
+    "post": "POST",
+    "satellite": "SENTINEL-2",
+    "streetLevel": "MAPILLARY (nivel de calle)",
+    "associatedNews": "NOTICIAS ASOCIADAS",
+    "close": "CERRAR",
+    "export": "EXPORTAR",
+    "status": {
+      "collapsed": "COLAPSADO",
+      "damaged": "DAÑADO",
+      "unknown": "DESCONOCIDO"
+    },
+    "confidence": "Sentinel-1 confidence"
+  },
+  "timeline": {
+    "pre": "PRE",
+    "post": "POST",
+    "mainEvent": "EVENTO PRINCIPAL"
+  },
+  "errors": {
+    "mapLoad": "Error cargando el mapa",
+    "dataFetch": "Error obteniendo datos",
+    "aiError": "Error del sistema de IA. Intenta de nuevo."
+  }
+}
