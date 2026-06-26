@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@400;600;700&family=Inter:wght@400;500&display=swap');
+
+:root {
+  --color-bg:     #000A0F;
+  --color-panel:  #001A24;
+  --color-green:  #00FF88;
+  --color-cyan:   #00B4FF;
+  --color-red:    #FF4444;
+  --color-amber:  #FFB800;
+  --color-slate:  #1A3A4A;
+  --color-text:   #E0E8F0;
+  --color-muted:  #607080;
+
+  --font-hud:      'Share Tech Mono', monospace;
+  --font-headline: 'Exo 2', sans-serif;
+  --font-body:     'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+
+/* Scanlines overlay */
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Pulse ring animation */
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  100% { transform: scale(3.5); opacity: 0; }
+}
+
+.pulse-ring {
+  animation: pulse-ring var(--pulse-duration, 2s) ease-out infinite;
+  border-radius: 50%;
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Glitch transition */
+@keyframes glitch {
+  0%   { filter: none; clip-path: none; transform: none; }
+  15%  { filter: hue-rotate(90deg) saturate(3); clip-path: inset(10% 0 80% 0); transform: translateX(2px); }
+  30%  { filter: hue-rotate(-90deg); clip-path: inset(60% 0 20% 0); transform: translateX(-2px); }
+  50%  { filter: saturate(0) brightness(2); clip-path: none; transform: none; }
+  70%  { filter: hue-rotate(45deg); clip-path: inset(30% 0 50% 0); transform: translateX(1px); }
+  100% { filter: none; clip-path: none; transform: none; }
+}
+
+.glitch-active {
+  animation: glitch 200ms steps(1) forwards;
+}
+
+/* Targeting overlay brackets */
+@keyframes bracket-converge {
+  from { opacity: 0; transform: translate(var(--tx), var(--ty)); }
+  to   { opacity: 1; transform: translate(0, 0); }
+}
+
+.targeting-bracket {
+  animation: bracket-converge 300ms ease-out forwards;
+}
+
+/* HUD text cursor blink */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.hud-cursor::after {
+  content: '_';
+  animation: cursor-blink 1s step-end infinite;
+  color: var(--color-green);
+}
+
+/* MapLibre canvas fill parent */
+.maplibregl-map {
+  width: 100% !important;
+  height: 100% !important;
+}
