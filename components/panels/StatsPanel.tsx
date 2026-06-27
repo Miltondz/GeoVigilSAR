@@ -99,7 +99,7 @@ export default function StatsPanel({
           value={stats.injured}
           max={10000}
           label="HERIDOS"
-          displayValue={`${stats.injured.toLocaleString()} ⚕`}
+          displayValue={`${stats.injured.toLocaleString('en-US')} ⚕`}
           color="amber"
         />
         <DataBar

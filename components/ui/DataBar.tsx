@@ -26,7 +26,7 @@ export default function DataBar({
 }: DataBarProps) {
   const pct = Math.min(100, (value / max) * 100)
   const barColor = colorMap[color]
-  const display = displayValue ?? value.toLocaleString()
+  const display = displayValue ?? value.toLocaleString('en-US')
 
   return (
     <div className={className} style={{ marginBottom: '0.75rem' }}>
