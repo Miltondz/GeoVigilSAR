@@ -27,6 +27,8 @@ import type { FirmsFire } from '@/lib/firms'
 import EMSCLayer from './layers/EMSCLayer'
 import type { EmscEvent } from '@/lib/emsc'
 import EMSR884Layer from './layers/EMSR884Layer'
+import EMSR884ProductsLayer from './layers/EMSR884ProductsLayer'
+import type { VtProductLayer } from '@/lib/emsr884'
 
 interface Earthquake {
   id: string
@@ -93,6 +95,7 @@ export default function MapLibreMap({
   const [opticalPostProducts, setOpticalPostProducts] = useState<CopernicusProduct[]>([])
   const [fires, setFires] = useState<FirmsFire[]>([])
   const [emscEvents, setEmscEvents] = useState<EmscEvent[]>([])
+  const [vtLayers, setVtLayers] = useState<VtProductLayer[]>([])
 
   const [insarData, setInsarData] = useState<{
     browseUrl: string
@@ -252,6 +255,16 @@ export default function MapLibreMap({
       .catch(() => {})
   }, [activeLayers.emscSeismic, emscEvents.length])
 
+  // Fetch EMSR884 VT product layers when toggle is active
+  useEffect(() => {
+    if (!activeLayers.emsr884Products) return
+    if (vtLayers.length > 0) return
+    fetch('/api/emsr884')
+      .then(r => r.json())
+      .then((d: { vtLayers?: VtProductLayer[] }) => setVtLayers(d.vtLayers ?? []))
+      .catch(() => {})
+  }, [activeLayers.emsr884Products, vtLayers.length])
+
   // Fetch InSAR job status when the layer is toggled on
   useEffect(() => {
     if (!activeLayers.insar) return
@@ -406,6 +419,11 @@ export default function MapLibreMap({
             <EMSR884Layer
               map={mapRef.current}
               visible={activeLayers.emsr884 ?? false}
+            />
+            <EMSR884ProductsLayer
+              map={mapRef.current}
+              vtLayers={vtLayers}
+              visible={activeLayers.emsr884Products ?? false}
             />
           </>
         )}

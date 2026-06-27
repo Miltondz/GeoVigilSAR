@@ -71,8 +71,9 @@ const LAYER_GROUPS = [
   {
     label: 'COPERNICUS EMS',
     layers: [
-      { id: 'emsr884', label: 'EMSR884 — Zonas de Intervención' },
-      { id: 'insar',   label: 'InSAR — Deformación del suelo' },
+      { id: 'emsr884',         label: 'EMSR884 — Zonas de Intervención' },
+      { id: 'emsr884Products', label: 'EMSR884 — Productos de Daños (VT)' },
+      { id: 'insar',           label: 'InSAR — Deformación del suelo' },
     ],
   },
 ]
