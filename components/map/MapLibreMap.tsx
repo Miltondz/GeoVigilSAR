@@ -10,6 +10,7 @@ import EarthquakeLayer from './layers/EarthquakeLayer'
 import ShakeMapLayer from './layers/ShakeMapLayer'
 import FaultLinesLayer from './layers/FaultLinesLayer'
 import SARLayer from './layers/SARLayer'
+import DamagePointsLayer from './layers/DamagePointsLayer'
 import PhotoComparator from '@/components/panels/PhotoComparator'
 import { MOCK_DAMAGE_POINTS } from '@/lib/mock-data'
 
@@ -143,28 +144,13 @@ export default function MapLibreMap({
               tiles={[]}
               visible={activeLayers.sarChange}
             />
+            <DamagePointsLayer
+              map={mapRef.current}
+              points={MOCK_DAMAGE_POINTS}
+              visible={activeLayers.damagePoints ?? false}
+            />
           </>
         )}
-
-        {/* Damage point markers (DOM overlay until proper GeoJSON layer in Phase 3) */}
-        {activeLayers.damagePoints && MOCK_DAMAGE_POINTS.map((point) => (
-          <div
-            key={point.id}
-            onClick={() => handleDamagePointClick(point)}
-            title={point.address}
-            style={{
-              position: 'absolute',
-              top: '45%', left: '55%',  // placeholder position
-              width: 10, height: 10,
-              borderRadius: '50%',
-              backgroundColor: point.damageType === 'collapsed' ? 'var(--color-red)' : 'var(--color-amber)',
-              boxShadow: `0 0 8px ${point.damageType === 'collapsed' ? 'var(--color-red)' : 'var(--color-amber)'}`,
-              cursor: 'pointer',
-              zIndex: 30,
-              transform: 'translate(-50%,-50%)',
-            }}
-          />
-        ))}
 
         {/* Targeting overlay */}
         {targeting && (

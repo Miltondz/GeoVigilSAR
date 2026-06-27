@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchGDELTNews } from '@/lib/gdelt'
-import { VEN_2406 } from '@/lib/events/ven-2406'
+import { getEvent } from '@/lib/events/index'
 
 export const runtime = 'nodejs'
 export const revalidate = 900
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
-  const lang = searchParams.get('lang') as 'es' | 'en' | null
-  const limit = parseInt(searchParams.get('limit') ?? '25', 10)
+  const eventId = searchParams.get('eventId') ?? 'VEN-2406'
+  const lang    = searchParams.get('lang') as 'es' | 'en' | null
+  const limit   = parseInt(searchParams.get('limit') ?? '25', 10)
+
+  const event = getEvent(eventId)
 
   try {
-    const items = await fetchGDELTNews(VEN_2406.gdeltQuery, {
+    const items = await fetchGDELTNews(event.gdeltQuery, {
       maxRecords: limit,
       timespanMinutes: 1440,
     })
