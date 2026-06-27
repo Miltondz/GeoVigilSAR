@@ -4,12 +4,13 @@ import type { USGSFeature } from './usgs'
 // ─── Model registry (verified against OpenRouter API 2026-06-26) ───────────────
 export const OPENROUTER_MODELS = {
   free: [
-    // Best for GeoVigil SAR: multilingual, structured output, large context
-    { id: 'meta-llama/llama-3.3-70b-instruct:free',      label: 'Llama 3.3 70B (free)',         tokens: 131072  },
-    { id: 'qwen/qwen3-next-80b-a3b-instruct:free',        label: 'Qwen3 Next 80B A3B (free)',    tokens: 262144  },
+    // Ranked best→good for GeoVigil SAR: multilingual ES/EN, structured output, large context
+    { id: 'google/gemini-2.0-flash-exp:free',             label: 'Gemini 2.0 Flash (free)',      tokens: 1048576 },
+    { id: 'meta-llama/llama-3.3-70b-instruct:free',       label: 'Llama 3.3 70B (free)',         tokens: 131072  },
+    { id: 'qwen/qwen3-235b-a22b:free',                    label: 'Qwen3 235B MoE (free)',        tokens: 262144  },
+    { id: 'deepseek/deepseek-r1:free',                    label: 'DeepSeek R1 (free)',           tokens: 163840  },
     { id: 'nousresearch/hermes-3-llama-3.1-405b:free',    label: 'Hermes 3 405B (free)',         tokens: 131072  },
-    { id: 'google/gemma-4-31b-it:free',                   label: 'Gemma 4 31B (free)',           tokens: 262144  },
-    { id: 'google/gemma-4-26b-a4b-it:free',               label: 'Gemma 4 26B MoE (free)',       tokens: 262144  },
+    { id: 'google/gemma-3-27b-it:free',                   label: 'Gemma 3 27B (free)',           tokens: 131072  },
     { id: 'openrouter/free',                              label: 'Router (aleatorio gratis)',     tokens: 200000  },
   ],
   paid: [
@@ -25,8 +26,8 @@ export type FreeModelId = typeof OPENROUTER_MODELS.free[number]['id']
 export type PaidModelId = typeof OPENROUTER_MODELS.paid[number]['id']
 export type ModelId     = FreeModelId | PaidModelId
 
-// Llama 3.3 70B: best balance of quality + multilingual + 131K ctx for SAR use case
-export const DEFAULT_FREE_MODEL: FreeModelId = 'meta-llama/llama-3.3-70b-instruct:free'
+// Gemini 2.0 Flash: best free model — 1M ctx, superior multilingual ES/EN, fast
+export const DEFAULT_FREE_MODEL: FreeModelId = 'google/gemini-2.0-flash-exp:free'
 export const DEFAULT_PAID_MODEL: PaidModelId = 'openai/gpt-4o-mini'
 
 export const DEFAULT_MODEL: string = process.env.OPENROUTER_MODEL ?? DEFAULT_FREE_MODEL

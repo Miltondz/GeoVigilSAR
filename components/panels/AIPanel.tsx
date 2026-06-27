@@ -45,7 +45,7 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
       setTimeout(() => {
         setMessages(prev => [...prev, {
           role: 'system',
-          content: `[IA no conectada — API key pendiente]\nModo demo: pregunta registrada.\nConecta ANTHROPIC_API_KEY en .env.local para activar.`,
+          content: `[IA no conectada — OPENROUTER_API_KEY pendiente]\nModo demo: pregunta registrada.\nConecta OPENROUTER_API_KEY en .env.local para activar.`,
         }])
         setLoading(false)
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
