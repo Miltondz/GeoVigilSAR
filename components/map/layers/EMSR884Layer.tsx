@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import maplibregl, { type Map as MapLibreMap } from 'maplibre-gl'
 import { isMapAlive } from './mapUtils'
 
@@ -15,7 +15,12 @@ const OUTLINE_ID = 'emsr884-outline'
 const LABEL_ID = 'emsr884-labels'
 
 export default function EMSR884Layer({ map, visible }: EMSR884LayerProps) {
+  const popupRef = useRef<maplibregl.Popup | null>(null)
+
   useEffect(() => {
+    if (!popupRef.current) {
+      popupRef.current = new maplibregl.Popup({ closeButton: false, closeOnClick: false })
+    }
     if (!map.getSource(SOURCE_ID)) {
       map.addSource(SOURCE_ID, {
         type: 'geojson',
@@ -75,10 +80,7 @@ export default function EMSR884Layer({ map, visible }: EMSR884LayerProps) {
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis)
     }
 
-    const popup = new maplibregl.Popup({
-      closeButton: false,
-      closeOnClick: false,
-    })
+    const popup = popupRef.current!
 
     const onMouseEnter = (e: maplibregl.MapMouseEvent & { features?: maplibregl.MapGeoJSONFeature[] }) => {
       if (!visible) return
@@ -109,7 +111,7 @@ export default function EMSR884Layer({ map, visible }: EMSR884LayerProps) {
       if (!isMapAlive(map)) return
       map.off('mouseenter', FILL_ID, onMouseEnter)
       map.off('mouseleave', FILL_ID, onMouseLeave)
-      popup.remove()
+      popupRef.current?.remove()
       for (const id of [LABEL_ID, OUTLINE_ID, FILL_ID]) {
         if (map.getLayer(id)) map.removeLayer(id)
       }

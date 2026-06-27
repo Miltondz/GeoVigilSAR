@@ -59,7 +59,7 @@ export async function fetchUSGSEarthquakes(
 
   const res = await fetch(
     `https://earthquake.usgs.gov/fdsnws/event/1/query?${params.toString()}`,
-    { next: { revalidate: 60 } }
+    { next: { revalidate: 60 }, signal: AbortSignal.timeout(10_000) }
   )
   if (!res.ok) throw new Error(`USGS API ${res.status}`)
 

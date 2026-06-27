@@ -84,14 +84,19 @@ export default function FIRMSLayer({ map, fires, visible }: FIRMSLayerProps) {
         .addTo(map)
     }
 
+    const handleMouseEnter = () => { map.getCanvas().style.cursor = 'pointer' }
+    const handleMouseLeave = () => { map.getCanvas().style.cursor = '' }
+
     map.on('click', LAYER_ID, handleClick)
-    map.on('mouseenter', LAYER_ID, () => { map.getCanvas().style.cursor = 'pointer' })
-    map.on('mouseleave', LAYER_ID, () => { map.getCanvas().style.cursor = '' })
+    map.on('mouseenter', LAYER_ID, handleMouseEnter)
+    map.on('mouseleave', LAYER_ID, handleMouseLeave)
 
     return () => {
       popupRef.current?.remove()
       if (!isMapAlive(map)) return
       map.off('click', LAYER_ID, handleClick)
+      map.off('mouseenter', LAYER_ID, handleMouseEnter)
+      map.off('mouseleave', LAYER_ID, handleMouseLeave)
       if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID)
       if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID)
     }

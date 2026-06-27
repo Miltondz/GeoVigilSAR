@@ -29,6 +29,7 @@ export async function fetchReliefWebReports(country: string, limit = 10): Promis
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     next: { revalidate: 3600 },
+    signal: AbortSignal.timeout(10_000),
   })
   if (!res.ok) throw new Error(`ReliefWeb API ${res.status}`)
 

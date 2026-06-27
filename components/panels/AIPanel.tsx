@@ -110,7 +110,7 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
           </span>
         </div>
         <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.4375rem', color: 'var(--color-muted)', marginTop: '0.125rem' }}>
-          Modelo: claude-sonnet-4-6
+          Gemini 2.0 Flash · OpenRouter
         </div>
       </div>
 

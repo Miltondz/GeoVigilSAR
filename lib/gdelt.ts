@@ -30,7 +30,7 @@ export async function fetchGDELTNews(
 
   const res = await fetch(
     `https://api.gdeltproject.org/api/v2/doc/doc?${params.toString()}`,
-    { next: { revalidate: 900 } }
+    { next: { revalidate: 900 }, signal: AbortSignal.timeout(10_000) }
   )
   if (!res.ok) throw new Error(`GDELT API ${res.status}`)
 

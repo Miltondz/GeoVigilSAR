@@ -41,7 +41,6 @@ export default function EarthquakeLayer({ map, earthquakes, visible, showAfterSh
   useEffect(() => {
     const SOURCE_ID = 'earthquakes'
     const LAYER_MAIN = 'earthquakes-main'
-    const LAYER_AFTERSHOCKS = 'earthquakes-aftershocks'
 
     const geojson: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
@@ -111,13 +110,13 @@ export default function EarthquakeLayer({ map, earthquakes, visible, showAfterSh
     }
 
     const visibility = visible ? 'visible' : 'none'
-    for (const id of ['clusters', 'cluster-count', LAYER_MAIN, LAYER_AFTERSHOCKS]) {
+    for (const id of ['clusters', 'cluster-count', LAYER_MAIN]) {
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visibility)
     }
 
     return () => {
       if (!isMapAlive(map)) return
-      for (const id of ['clusters', 'cluster-count', LAYER_MAIN, LAYER_AFTERSHOCKS]) {
+      for (const id of ['clusters', 'cluster-count', LAYER_MAIN]) {
         if (map.getLayer(id)) map.removeLayer(id)
       }
       if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID)

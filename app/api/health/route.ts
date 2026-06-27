@@ -158,7 +158,7 @@ async function checkEndpoint(check: Check): Promise<HealthResult> {
       res = await fetch(check.url, {
         method: 'GET',
         headers,
-        signal: AbortSignal.timeout(TIMEOUT_MS - (Date.now() - start)),
+        signal: AbortSignal.timeout(Math.max(100, TIMEOUT_MS - (Date.now() - start))),
         cache: 'no-store',
       })
     }

@@ -51,7 +51,7 @@ export default function ShakeMapLayer({ map, eventId: _eventId, visible }: Shake
           'circle-opacity': 0.15,
           'circle-blur': 1,
         },
-      }, 'earthquakes-main')
+      }, map.getLayer('earthquakes-main') ? 'earthquakes-main' : undefined)
     }
 
     if (map.getLayer(LAYER)) {
