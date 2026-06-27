@@ -17,6 +17,7 @@ interface DashboardHeaderProps {
   onZoomTo?: (lat: number, lng: number, name: string) => void
   onSitrepOpen?: () => void
   onDataSourcesOpen?: () => void
+  onSystemHealthOpen?: () => void
   earthquakes?: {
     id: string; magnitude: number; depth: number; lat: number; lng: number
     time: number; place: string; classification: string
@@ -32,6 +33,7 @@ export default function DashboardHeader({
   onZoomTo,
   onSitrepOpen,
   onDataSourcesOpen,
+  onSystemHealthOpen,
   earthquakes = [],
 }: DashboardHeaderProps) {
   const router = useRouter()
@@ -96,6 +98,38 @@ export default function DashboardHeader({
           onResult={r => onZoomTo?.(r.lat, r.lng, r.name)}
           placeholder={locale === 'es' ? 'BUSCAR ZONA...' : 'SEARCH ZONE...'}
         />
+
+        {/* System health / connections button */}
+        {onSystemHealthOpen && (
+          <button
+            onClick={onSystemHealthOpen}
+            title="Estado de conexiones"
+            style={{
+              fontFamily: 'var(--font-hud)',
+              fontSize: '0.625rem',
+              letterSpacing: '0.15em',
+              color: 'var(--color-green)',
+              background: 'none',
+              border: '1px solid var(--color-green)',
+              padding: '0.25rem 0.625rem',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+            }}
+          >
+            <span style={{
+              width: 5,
+              height: 5,
+              borderRadius: '50%',
+              backgroundColor: 'var(--color-green)',
+              boxShadow: '0 0 4px var(--color-green)',
+              display: 'inline-block',
+            }} />
+            SYS
+          </button>
+        )}
 
         {/* Locale toggle */}
         <button

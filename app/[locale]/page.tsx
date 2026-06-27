@@ -10,6 +10,7 @@ import HospitalStatusPanel from '@/components/panels/HospitalStatusPanel'
 import SituationReportModal from '@/components/panels/SituationReportModal'
 import InSARPanel from '@/components/panels/InSARPanel'
 import DataSourcesPanel from '@/components/panels/DataSourcesPanel'
+import SystemHealthModal from '@/components/ui/SystemHealthModal'
 import {
   MOCK_STATS,
   MOCK_MAIN_SHOCKS,
@@ -54,6 +55,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [sitrepOpen, setSitrepOpen] = useState(false)
   const [insarPanelOpen, setInsarPanelOpen] = useState(false)
   const [dataSourcesPanelOpen, setDataSourcesPanelOpen] = useState(false)
+  const [systemHealthOpen, setSystemHealthOpen] = useState(true)
   const [mapTarget, setMapTarget] = useState<{ lat: number; lng: number; name: string } | null>(null)
   const [liveEarthquakes, setLiveEarthquakes] = useState<{
     id: string; magnitude: number; depth: number; lat: number; lng: number
@@ -123,6 +125,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         onZoomTo={handleZoomTo}
         onSitrepOpen={() => setSitrepOpen(true)}
         onDataSourcesOpen={() => setDataSourcesPanelOpen(o => !o)}
+        onSystemHealthOpen={() => setSystemHealthOpen(true)}
         earthquakes={liveEarthquakes}
       />
 
@@ -189,6 +192,13 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         onClose={() => setDataSourcesPanelOpen(false)}
         eventId={activeEventId}
       />
+
+      {systemHealthOpen && (
+        <SystemHealthModal
+          onClose={() => setSystemHealthOpen(false)}
+          autoClose={true}
+        />
+      )}
     </div>
   )
 }
