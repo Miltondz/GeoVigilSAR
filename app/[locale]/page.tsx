@@ -7,6 +7,7 @@ import AIPanel from '@/components/panels/AIPanel'
 import GeoVigilMap from '@/components/map/GeoVigilMap'
 import TimelineSlider from '@/components/map/controls/TimelineSlider'
 import HospitalStatusPanel from '@/components/panels/HospitalStatusPanel'
+import SituationReportModal from '@/components/panels/SituationReportModal'
 import {
   MOCK_STATS,
   MOCK_MAIN_SHOCKS,
@@ -45,6 +46,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [timelineValue, setTimelineValue] = useState(75)
   const [activeEventId, setActiveEventId] = useState('VEN-2406')
   const [hospitalPanelOpen, setHospitalPanelOpen] = useState(false)
+  const [sitrepOpen, setSitrepOpen] = useState(false)
+  const [mapTarget, setMapTarget] = useState<{ lat: number; lng: number; name: string } | null>(null)
   const [liveEarthquakes, setLiveEarthquakes] = useState<{
     id: string; magnitude: number; depth: number; lat: number; lng: number
     time: number; place: string; classification: string
@@ -57,6 +60,10 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const handleEventChange = useCallback((eventId: string) => {
     setActiveEventId(eventId)
     setLiveEarthquakes([])  // clear until new data loads
+  }, [])
+
+  const handleZoomTo = useCallback((lat: number, lng: number, name: string) => {
+    setMapTarget({ lat, lng, name })
   }, [])
 
   const event = getEvent(activeEventId)
@@ -98,6 +105,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         activeLayers={activeLayers}
         onLayersChange={handleLayerChange}
         onEventChange={handleEventChange}
+        onZoomTo={handleZoomTo}
+        onSitrepOpen={() => setSitrepOpen(true)}
         earthquakes={liveEarthquakes}
       />
 
@@ -119,6 +128,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
             onEarthquakesLoaded={setLiveEarthquakes}
             timelinePhase={timelinePhase}
             timelineMs={timelineMs}
+            flyTo={mapTarget}
           />
         </div>
 
@@ -142,6 +152,13 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         visible={hospitalPanelOpen}
         onClose={() => setHospitalPanelOpen(false)}
         eventId={activeEventId}
+      />
+
+      <SituationReportModal
+        isOpen={sitrepOpen}
+        onClose={() => setSitrepOpen(false)}
+        eventId={activeEventId}
+        locale={params.locale}
       />
     </div>
   )

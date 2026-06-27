@@ -33,12 +33,19 @@ interface Earthquake {
   classification: string
 }
 
+interface FlyToTarget {
+  lat: number
+  lng: number
+  name?: string
+}
+
 interface GeoVigilMapProps {
   activeLayers: Record<string, boolean>
   eventId: string
   onEarthquakesLoaded?: (earthquakes: Earthquake[]) => void
   timelinePhase?: 'pre' | 'main' | 'post'
   timelineMs?: number
+  flyTo?: FlyToTarget | null
 }
 
 function MapPlaceholder() {
@@ -64,7 +71,7 @@ function toMarker(eq: Earthquake): EarthquakeMarker {
   return { id: eq.id, magnitude: eq.magnitude, lat: eq.lat, lng: eq.lng, depth: eq.depth }
 }
 
-export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, timelinePhase, timelineMs }: GeoVigilMapProps) {
+export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, timelinePhase, timelineMs, flyTo }: GeoVigilMapProps) {
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([])
   const [lastFetch, setLastFetch] = useState(0)
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d')
@@ -109,6 +116,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
           earthquakes={earthquakes}
           timelinePhase={timelinePhase}
           timelineMs={timelineMs}
+          flyTo={flyTo}
         />
       </div>
 

@@ -5,6 +5,7 @@ import StatusBadge from '@/components/ui/StatusBadge'
 import LayerToggle from '@/components/map/controls/LayerToggle'
 import EventSelector from '@/components/EventSelector'
 import ExportMenu from '@/components/ui/ExportMenu'
+import ZoneSearch from '@/components/map/controls/ZoneSearch'
 import { getEvent } from '@/lib/events/index'
 
 interface DashboardHeaderProps {
@@ -13,6 +14,8 @@ interface DashboardHeaderProps {
   activeLayers: Record<string, boolean>
   onLayersChange: (id: string, visible: boolean) => void
   onEventChange: (eventId: string) => void
+  onZoomTo?: (lat: number, lng: number, name: string) => void
+  onSitrepOpen?: () => void
   earthquakes?: {
     id: string; magnitude: number; depth: number; lat: number; lng: number
     time: number; place: string; classification: string
@@ -25,6 +28,8 @@ export default function DashboardHeader({
   activeLayers,
   onLayersChange,
   onEventChange,
+  onZoomTo,
+  onSitrepOpen,
   earthquakes = [],
 }: DashboardHeaderProps) {
   const router = useRouter()
@@ -84,6 +89,12 @@ export default function DashboardHeader({
 
       {/* Controls right */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+        {/* Zone search */}
+        <ZoneSearch
+          onResult={r => onZoomTo?.(r.lat, r.lng, r.name)}
+          placeholder={locale === 'es' ? 'BUSCAR ZONA...' : 'SEARCH ZONE...'}
+        />
+
         {/* Locale toggle */}
         <button
           onClick={() => router.push(`/${otherLocale}`)}
@@ -105,6 +116,26 @@ export default function DashboardHeader({
         </button>
 
         <LayerToggle layers={activeLayers} onChange={onLayersChange} />
+
+        {/* SITREP button */}
+        {onSitrepOpen && (
+          <button
+            onClick={onSitrepOpen}
+            style={{
+              fontFamily: 'var(--font-hud)',
+              fontSize: '0.625rem',
+              letterSpacing: '0.15em',
+              color: 'var(--color-amber)',
+              background: 'none',
+              border: '1px solid var(--color-amber)',
+              padding: '0.25rem 0.625rem',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+            }}
+          >
+            SITREP
+          </button>
+        )}
 
         <ExportMenu
           eventId={eventId}

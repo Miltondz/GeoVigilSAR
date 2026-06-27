@@ -35,6 +35,12 @@ interface ActiveLayers {
   [key: string]: boolean
 }
 
+interface FlyToTarget {
+  lat: number
+  lng: number
+  name?: string
+}
+
 interface MapLibreMapProps {
   activeLayers: ActiveLayers
   eventId: string
@@ -43,6 +49,7 @@ interface MapLibreMapProps {
   zoom?: number
   timelinePhase?: 'pre' | 'main' | 'post'
   timelineMs?: number
+  flyTo?: FlyToTarget | null
 }
 
 // Protomaps free tile style — no key required
@@ -61,6 +68,7 @@ export default function MapLibreMap({
   zoom = 7,
   timelinePhase,
   timelineMs,
+  flyTo,
 }: MapLibreMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -174,6 +182,16 @@ export default function MapLibreMap({
     const id = setInterval(() => void load(), 30_000)
     return () => clearInterval(id)
   }, [activeLayers.airTraffic])
+
+  // Fly to target when supplied from parent (ZoneSearch)
+  useEffect(() => {
+    if (!flyTo || !mapRef.current) return
+    mapRef.current.flyTo({
+      center: [flyTo.lng, flyTo.lat],
+      zoom: 12,
+      duration: 1500,
+    })
+  }, [flyTo])
 
   const handleDamagePointClick = useCallback((point: typeof MOCK_DAMAGE_POINTS[0]) => {
     setSelectedNode(point)

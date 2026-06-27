@@ -142,6 +142,20 @@
     "NVG": "NVG",
     "CRT": "CRT"
   },
+  "search": {
+    "placeholder": "BUSCAR ZONA...",
+    "no_results": "Sin resultados"
+  },
+  "sitrep": {
+    "button": "SITREP",
+    "title": "REPORTE DE SITUACIÓN",
+    "include_ai": "Incluir análisis IA",
+    "generate": "GENERAR REPORTE",
+    "generating": "Generando...",
+    "download": "DESCARGAR .MD",
+    "copy": "COPIAR",
+    "copied": "COPIADO"
+  },
   "errors": {
     "mapLoad": "Error cargando el mapa",
     "dataFetch": "Error obteniendo datos",
