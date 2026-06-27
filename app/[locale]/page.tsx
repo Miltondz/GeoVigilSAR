@@ -11,6 +11,7 @@ import SituationReportModal from '@/components/panels/SituationReportModal'
 import InSARPanel from '@/components/panels/InSARPanel'
 import DataSourcesPanel from '@/components/panels/DataSourcesPanel'
 import SystemHealthModal from '@/components/ui/SystemHealthModal'
+import EMSR884Panel from '@/components/panels/EMSR884Panel'
 import {
   MOCK_STATS,
   MOCK_MAIN_SHOCKS,
@@ -45,6 +46,7 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   insar:           false,
   emscSeismic:     false,
   emsr884:         false,
+  emsr884Products: false,
 }
 
 export default function DashboardPage({ params }: { params: { locale: string } }) {
@@ -56,6 +58,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [insarPanelOpen, setInsarPanelOpen] = useState(false)
   const [dataSourcesPanelOpen, setDataSourcesPanelOpen] = useState(false)
   const [systemHealthOpen, setSystemHealthOpen] = useState(true)
+  const [emsr884PanelOpen, setEmsr884PanelOpen] = useState(false)
   const [mapTarget, setMapTarget] = useState<{ lat: number; lng: number; name: string } | null>(null)
   const [liveEarthquakes, setLiveEarthquakes] = useState<{
     id: string; magnitude: number; depth: number; lat: number; lng: number
@@ -64,7 +67,9 @@ export default function DashboardPage({ params }: { params: { locale: string } }
 
   const handleLayerChange = useCallback((id: string, visible: boolean) => {
     setActiveLayers(prev => ({ ...prev, [id]: visible }))
-    if (id === 'insar' && visible) setInsarPanelOpen(true)
+    if (id === 'insar'    && visible) setInsarPanelOpen(true)
+    if (id === 'emsr884'  && visible) setEmsr884PanelOpen(true)
+    if (id === 'emsr884Products' && visible) setEmsr884PanelOpen(true)
   }, [])
 
   const handleInsarJobReady = useCallback(
@@ -199,6 +204,11 @@ export default function DashboardPage({ params }: { params: { locale: string } }
           autoClose={true}
         />
       )}
+
+      <EMSR884Panel
+        visible={emsr884PanelOpen}
+        onClose={() => setEmsr884PanelOpen(false)}
+      />
     </div>
   )
 }

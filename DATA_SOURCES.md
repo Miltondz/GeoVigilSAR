@@ -1,7 +1,7 @@
 # GeoVigil SAR — Fuentes de Datos
 
 > Documento de referencia: todas las fuentes activas, propósito, tipo de dato y endpoints.
-> Actualizado: 2026-06-27
+> Actualizado: 2026-06-27 — EMSR884 VT layer integration
 
 ---
 
@@ -71,7 +71,7 @@
 | **Route** | `GET|POST /api/insar` |
 | **Revalidate** | 0 (polling activo) |
 
-### Copernicus EMS — Emergency Management Service
+### Copernicus EMS — Emergency Management Service (General)
 | Campo | Detalle |
 |-------|---------|
 | **Propósito** | Activaciones oficiales de mapeo de emergencia — damage grading maps, delineation maps |
@@ -80,6 +80,39 @@
 | **Endpoint** | `https://emergency.copernicus.eu/mapping/activations-rapid/EMS_RapidMappingActivation.json` |
 | **Route** | `GET /api/copernicus-ems` |
 | **Revalidate** | 3600 s |
+
+### Copernicus EMS — EMSR884 Backend API (Venezuela 2026)
+| Campo | Detalle |
+|-------|---------|
+| **Propósito** | Activación EMSR884 Venezuela Mw 7.5 — metadatos, productos por AOI, URL del S3 bucket |
+| **Tipo** | JSON — `{ results: [Emsr884Activation] }` con `aws_bucket`, `aois[].products[].layers[]` |
+| **Auth** | Ninguna (API pública) |
+| **Endpoint** | `https://rapidmapping.emergency.copernicus.eu/backend/dashboard-api/public-activations/?code=EMSR884` |
+| **Route** | `GET /api/emsr884` — retorna `{ activation, vtLayers, lastUpdated }` |
+| **Revalidate** | 3600 s |
+
+### Copernicus EMS — EMSR884 Vector Tiles (AWS S3)
+| Campo | Detalle |
+|-------|---------|
+| **Propósito** | Productos de daños geoprocesados (DEL/GRA) en formato vector tiles — evaluación de daños edificio por edificio, EMS-98 |
+| **Tipo** | MVT (Mapbox Vector Tiles) — sources tipo `vector` en MapLibre |
+| **Auth** | Ninguna (S3 bucket público) |
+| **URL tiles** | `{aws_bucket}/{layer.name}/{z}/{x}/{y}.pbf` — `aws_bucket` viene de `/api/emsr884` |
+| **SLD styling** | `{aws_bucket}/{layer.name}.sld` — XML con colores oficiales Copernicus |
+| **Capas producto** | `type=vt` en `aois[].products[].layers[]` — solo productos `feasible=true`, `version.statusCode=F` |
+| **Paleta daños** | Destruido `#E0170B` → Daño grave `#F5830C` → Moderado `#FFEB00` → Leve `#AED9A3` → Sin daño `#1E9C3B` |
+| **Tipos producto** | FEP (primera estimación), REF (referencia), DEL (delineación), GRA (gradación de daños) |
+| **Toggle** | `emsr884Products` — carga tiles on-demand; panel EMSR884 abre automáticamente |
+
+### Copernicus EMS — EMSR884 AOI GeoJSON (estático)
+| Campo | Detalle |
+|-------|---------|
+| **Propósito** | 13 polígonos AOI (Áreas de Interés) — límites de las zonas evaluadas |
+| **Tipo** | GeoJSON FeatureCollection — archivo local |
+| **Fuente** | Descargado de Copernicus EMS Portal |
+| **Path** | `public/geojson/EMSR884_aois.json` |
+| **Toggle** | `emsr884` — borde rojo discontinuo + etiqueta de nombre |
+| **AOIs** | AOI00 Costera Central, AOI01 Petare, AOI02 Caracas, AOI03 Antimano, AOI04 Maracay, AOI05 Santa Cruz, AOI06 Morón, AOI07 Puerto Cabello, AOI08 San Felipe, AOI09 Valencia, AOI10 Guacara, AOI11 Villa de Cura, AOI12 Caraballeda |
 
 ---
 
@@ -276,7 +309,9 @@
 | ReliefWeb | 1 h | 90 min |
 | ReliefWeb Disasters | 1 h | 60 min |
 | Copernicus SAR/Optical | ~12 días (revisita S1) | 60 min |
-| Copernicus EMS | evento-driven | 60 min |
+| Copernicus EMS (activaciones) | evento-driven | 60 min |
+| EMSR884 Backend API | evento-driven | 60 min |
+| EMSR884 VT S3 tiles | fijo (producción batch) | sin caché (S3 directo) |
 | CelesTrak TLE | 12 h | 12 h |
 | NASA FIRMS (VIIRS) | 3 h | 4 h |
 | HyP3 InSAR | on-demand (~60 min proc.) | hasta SUCCEEDED |
