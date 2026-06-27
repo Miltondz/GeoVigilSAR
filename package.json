@@ -7,10 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "copy-cesium": "node scripts/copy-cesium.js",
+    "postinstall": "node scripts/copy-cesium.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
+    "cesium": "^1.142.0",
     "convex": "^1.17.4",
     "h3-js": "^4.4.0",
     "maplibre-gl": "^4.7.1",

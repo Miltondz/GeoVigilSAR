@@ -130,6 +130,11 @@
       "RED": "NON-OPERATIONAL"
     }
   },
+  "viewMode": {
+    "2d": "2D",
+    "3d": "3D GLOBE",
+    "toggle": "Toggle view"
+  },
   "errors": {
     "mapLoad": "Error loading map",
     "dataFetch": "Error fetching data",

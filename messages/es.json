@@ -130,6 +130,11 @@
       "RED": "NO OPERATIVO"
     }
   },
+  "viewMode": {
+    "2d": "2D",
+    "3d": "3D GLOBO",
+    "toggle": "Cambiar vista"
+  },
   "errors": {
     "mapLoad": "Error cargando el mapa",
     "dataFetch": "Error obteniendo datos",
