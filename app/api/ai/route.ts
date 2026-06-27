@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { buildSystemPrompt, getAnthropicClient, type AIContext } from '@/lib/anthropic'
+import { buildSystemPrompt, getAIClient, DEFAULT_MODEL, type AIContext } from '@/lib/ai'
 
 export const runtime = 'nodejs'
 
@@ -15,11 +15,14 @@ interface AIRequest {
 }
 
 export async function POST(req: NextRequest) {
-  const client = getAnthropicClient()
+  const client = getAIClient()
 
   if (!client) {
     return NextResponse.json(
-      { error: 'ANTHROPIC_API_KEY not configured. Add it to .env.local to enable the AI assistant.' },
+      {
+        error: 'OPENROUTER_API_KEY not configured.',
+        hint: 'Get a free key at https://openrouter.ai — add OPENROUTER_API_KEY to .env.local',
+      },
       { status: 503 }
     )
   }
@@ -38,18 +41,22 @@ export async function POST(req: NextRequest) {
   }
 
   const systemPrompt = buildSystemPrompt(context)
+  const model = req.headers.get('X-Model') ?? DEFAULT_MODEL
 
-  const messages: ChatMessage[] = [
+  const messages = [
     ...history.slice(-10),
-    { role: 'user', content: message },
+    { role: 'user' as const, content: message },
   ]
 
   try {
-    const stream = await client.messages.stream({
-      model: 'claude-sonnet-4-6',
+    const stream = await client.chat.completions.create({
+      model,
       max_tokens: 1024,
-      system: systemPrompt,
-      messages,
+      stream: true,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages,
+      ],
     })
 
     const encoder = new TextEncoder()
@@ -57,12 +64,8 @@ export async function POST(req: NextRequest) {
     const readable = new ReadableStream({
       async start(controller) {
         for await (const chunk of stream) {
-          if (
-            chunk.type === 'content_block_delta' &&
-            chunk.delta.type === 'text_delta'
-          ) {
-            controller.enqueue(encoder.encode(chunk.delta.text))
-          }
+          const text = chunk.choices[0]?.delta?.content ?? ''
+          if (text) controller.enqueue(encoder.encode(text))
         }
         controller.close()
       },
@@ -73,10 +76,11 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache',
         'X-Accel-Buffering': 'no',
+        'X-Model-Used': model,
       },
     })
   } catch (err) {
-    console.error('Anthropic stream error:', err)
+    console.error('OpenRouter stream error:', err)
     return NextResponse.json({ error: 'AI request failed' }, { status: 502 })
   }
 }
