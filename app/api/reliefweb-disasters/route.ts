@@ -31,31 +31,22 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const country = searchParams.get('country') ?? 'VEN'
 
-  const body = {
-    filter: {
-      operator: 'AND',
-      conditions: [
-        { field: 'country.iso3', value: country },
-        { field: 'type.name', value: 'Earthquake' },
-      ],
-    },
-    fields: {
-      include: ['name', 'date', 'status', 'glide', 'primary_type'],
-    },
-    sort: [{ field: 'date.created', direction: 'desc' }],
-    limit: 5,
-  }
-
   try {
-    const res = await fetch(
-      'https://api.reliefweb.int/v1/disasters?appname=geovigil-sar',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        next: { revalidate: 3600 },
-      }
-    )
+    const url = new URL('https://api.reliefweb.int/v2/disasters')
+    url.searchParams.set('appname', 'geovigil-sar')
+    url.searchParams.set('filter[field]', 'country.iso3')
+    url.searchParams.set('filter[value]', country)
+    url.searchParams.set('fields[include][]', 'name')
+    url.searchParams.append('fields[include][]', 'date')
+    url.searchParams.append('fields[include][]', 'status')
+    url.searchParams.append('fields[include][]', 'glide')
+    url.searchParams.set('sort[]', 'date.created:desc')
+    url.searchParams.set('limit', '5')
+
+    const res = await fetch(url.toString(), {
+      next: { revalidate: 3600 },
+      signal: AbortSignal.timeout(10_000),
+    })
 
     if (!res.ok) {
       console.warn(`[ReliefWeb Disasters] API returned ${res.status}`)
