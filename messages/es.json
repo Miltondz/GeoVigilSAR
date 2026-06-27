@@ -89,6 +89,22 @@
     "post": "POST",
     "mainEvent": "EVENTO PRINCIPAL"
   },
+  "airTraffic": {
+    "layer": "Tráfico Aéreo",
+    "flights_tracked": "Vuelos Rastreados",
+    "callsign": "Indicativo",
+    "altitude": "Altitud",
+    "velocity": "Velocidad",
+    "category": "Categoría",
+    "country": "País",
+    "on_ground": "En Tierra",
+    "categories": {
+      "ROTORCRAFT": "Helicóptero",
+      "UAV": "Dron/UAV",
+      "LARGE": "Avión Grande",
+      "EMERGENCY_VEHICLE": "Emergencia"
+    }
+  },
   "errors": {
     "mapLoad": "Error cargando el mapa",
     "dataFetch": "Error obteniendo datos",

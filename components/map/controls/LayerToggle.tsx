@@ -55,6 +55,12 @@ const LAYER_GROUPS = [
       { id: 'vulnerability', label: 'Vulnerabilidad compuesta' },
     ],
   },
+  {
+    label: 'FUSIÓN AÉREA',
+    layers: [
+      { id: 'airTraffic', label: 'Tráfico Aéreo' },
+    ],
+  },
 ]
 
 export default function LayerToggle({ layers, onChange, className = '' }: LayerToggleProps) {

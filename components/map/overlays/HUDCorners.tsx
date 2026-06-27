@@ -6,6 +6,7 @@ interface HUDCornersProps {
   centerLat?: number
   centerLng?: number
   zoom?: number
+  flightCount?: number
 }
 
 const L = 20
@@ -24,7 +25,7 @@ function Corner({ top, left, right, bottom }: { top?: boolean; left?: boolean; r
   )
 }
 
-export default function HUDCorners({ centerLat = 10.4, centerLng = -68.7, zoom = 7 }: HUDCornersProps) {
+export default function HUDCorners({ centerLat = 10.4, centerLng = -68.7, zoom = 7, flightCount }: HUDCornersProps) {
   const [utc, setUtc] = useState('')
 
   useEffect(() => {
@@ -57,6 +58,9 @@ export default function HUDCorners({ centerLat = 10.4, centerLng = -68.7, zoom =
       <div style={{ ...style, position: 'absolute', top: 14, right: 16, textAlign: 'right' }}>
         <div>{utc}</div>
         <div>ZOOM {zoom.toFixed(1)}</div>
+        <div style={{ color: 'var(--color-cyan)', fontSize: '0.5rem' }}>
+          FLIGHTS TRACKED: {flightCount != null && flightCount > 0 ? flightCount : '--'}
+        </div>
       </div>
 
       {/* BL */}

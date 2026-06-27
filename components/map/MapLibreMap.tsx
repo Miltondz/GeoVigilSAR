@@ -12,9 +12,11 @@ import FaultLinesLayer from './layers/FaultLinesLayer'
 import SARLayer from './layers/SARLayer'
 import DamagePointsLayer from './layers/DamagePointsLayer'
 import VulnerabilityHeatmap from './layers/VulnerabilityHeatmap'
+import AirTrafficLayer from './layers/AirTrafficLayer'
 import PhotoComparator from '@/components/panels/PhotoComparator'
 import { MOCK_DAMAGE_POINTS } from '@/lib/mock-data'
 import type { VulnerabilityScore } from '@/lib/vulnerability'
+import type { AircraftState } from '@/lib/opensky'
 
 interface Earthquake {
   id: string
@@ -62,6 +64,7 @@ export default function MapLibreMap({
   const [comparatorOpen, setComparatorOpen] = useState(false)
   const [selectedNode, setSelectedNode] = useState<typeof MOCK_DAMAGE_POINTS[0] | undefined>()
   const [vulnerabilityScores, setVulnerabilityScores] = useState<VulnerabilityScore[]>([])
+  const [aircraft, setAircraft] = useState<AircraftState[]>([])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -121,6 +124,26 @@ export default function MapLibreMap({
     void load()
   }, [activeLayers.vulnerability, eventId, vulnerabilityScores.length])
 
+  // Fetch + poll air traffic when the layer is active (every 30 s)
+  useEffect(() => {
+    if (!activeLayers.airTraffic) return
+
+    const load = async () => {
+      try {
+        const res = await fetch('/api/air-traffic')
+        if (!res.ok) return
+        const data = (await res.json()) as { aircraft: AircraftState[] }
+        setAircraft(data.aircraft ?? [])
+      } catch {
+        // OpenSky unavailable — keep previous state
+      }
+    }
+
+    void load()
+    const id = setInterval(() => void load(), 30_000)
+    return () => clearInterval(id)
+  }, [activeLayers.airTraffic])
+
   const handleDamagePointClick = useCallback((point: typeof MOCK_DAMAGE_POINTS[0]) => {
     setSelectedNode(point)
     setComparatorOpen(true)
@@ -176,6 +199,11 @@ export default function MapLibreMap({
               scores={vulnerabilityScores}
               visible={activeLayers.vulnerability ?? false}
             />
+            <AirTrafficLayer
+              map={mapRef.current}
+              aircraft={aircraft}
+              visible={activeLayers.airTraffic ?? false}
+            />
           </>
         )}
 
@@ -194,6 +222,7 @@ export default function MapLibreMap({
           centerLat={viewport.lat}
           centerLng={viewport.lng}
           zoom={viewport.zoom}
+          flightCount={aircraft.length}
         />
       </div>
 

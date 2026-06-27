@@ -35,6 +35,7 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   population:      false,
   geoNews:         false,
   vulnerability:   false,
+  airTraffic:      false,
 }
 
 export default function DashboardPage({ params }: { params: { locale: string } }) {
