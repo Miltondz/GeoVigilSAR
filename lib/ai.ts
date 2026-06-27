@@ -1,13 +1,46 @@
 import OpenAI from 'openai'
 import type { USGSFeature } from './usgs'
 
-// OpenRouter model options (cheapest → best)
-// Free:    meta-llama/llama-3.1-8b-instruct:free
-// Cheap:   openai/gpt-4o-mini  ($0.15/M in, $0.60/M out)
-//          anthropic/claude-3-haiku  ($0.25/M in, $1.25/M out)
-// Mid:     openai/gpt-4o  ($2.5/M in, $10/M out)
-export const DEFAULT_MODEL = process.env.OPENROUTER_MODEL ?? 'openai/gpt-4o-mini'
+// ─── Model registry (verified against OpenRouter API 2026-06-26) ───────────────
+export const OPENROUTER_MODELS = {
+  free: [
+    // Best for GeoVigil SAR: multilingual, structured output, large context
+    { id: 'meta-llama/llama-3.3-70b-instruct:free',      label: 'Llama 3.3 70B (free)',         tokens: 131072  },
+    { id: 'qwen/qwen3-next-80b-a3b-instruct:free',        label: 'Qwen3 Next 80B A3B (free)',    tokens: 262144  },
+    { id: 'nousresearch/hermes-3-llama-3.1-405b:free',    label: 'Hermes 3 405B (free)',         tokens: 131072  },
+    { id: 'google/gemma-4-31b-it:free',                   label: 'Gemma 4 31B (free)',           tokens: 262144  },
+    { id: 'google/gemma-4-26b-a4b-it:free',               label: 'Gemma 4 26B MoE (free)',       tokens: 262144  },
+    { id: 'openrouter/free',                              label: 'Router (aleatorio gratis)',     tokens: 200000  },
+  ],
+  paid: [
+    { id: 'openai/gpt-4o-mini',              label: 'GPT-4o Mini',        costPer1M: '$0.15 in / $0.60 out'   },
+    { id: 'anthropic/claude-3-haiku',        label: 'Claude 3 Haiku',     costPer1M: '$0.25 in / $1.25 out'   },
+    { id: 'anthropic/claude-3.5-sonnet',     label: 'Claude 3.5 Sonnet',  costPer1M: '$3.00 in / $15.00 out'  },
+    { id: 'openai/gpt-4o',                   label: 'GPT-4o',             costPer1M: '$2.50 in / $10.00 out'  },
+    { id: 'google/gemini-flash-1.5',         label: 'Gemini Flash 1.5',   costPer1M: '$0.075 in / $0.30 out'  },
+  ],
+} as const
 
+export type FreeModelId = typeof OPENROUTER_MODELS.free[number]['id']
+export type PaidModelId = typeof OPENROUTER_MODELS.paid[number]['id']
+export type ModelId     = FreeModelId | PaidModelId
+
+// Llama 3.3 70B: best balance of quality + multilingual + 131K ctx for SAR use case
+export const DEFAULT_FREE_MODEL: FreeModelId = 'meta-llama/llama-3.3-70b-instruct:free'
+export const DEFAULT_PAID_MODEL: PaidModelId = 'openai/gpt-4o-mini'
+
+export const DEFAULT_MODEL: string = process.env.OPENROUTER_MODEL ?? DEFAULT_FREE_MODEL
+
+export function getModelLabel(id: string): string {
+  const all = [...OPENROUTER_MODELS.free, ...OPENROUTER_MODELS.paid]
+  return all.find(m => m.id === id)?.label ?? id.split('/').pop() ?? id
+}
+
+export function isFreeModel(id: string): boolean {
+  return id.endsWith(':free') || id === 'openrouter/free'
+}
+
+// ─── Context types ─────────────────────────────────────────────────────────────
 export interface AIContext {
   eventId: string
   recentEarthquakes: Pick<USGSFeature, 'magnitude' | 'place' | 'time' | 'depth'>[]
@@ -16,6 +49,7 @@ export interface AIContext {
   activeLayers: string[]
 }
 
+// ─── System prompt ─────────────────────────────────────────────────────────────
 const SYSTEM_BASE = `Eres el sistema de inteligencia situacional de GeoVigil SAR.
 Tienes acceso a datos sísmicos en tiempo real de USGS, imágenes
 satelitales de Copernicus, noticias de GDELT y reportes humanitarios
@@ -52,6 +86,7 @@ export function buildSystemPrompt(ctx: AIContext): string {
   return SYSTEM_BASE + quakesSection + statsSection + newsSection + layersSection
 }
 
+// ─── Client factory ────────────────────────────────────────────────────────────
 export function getAIClient(): OpenAI | null {
   const key = process.env.OPENROUTER_API_KEY
   if (!key) return null
