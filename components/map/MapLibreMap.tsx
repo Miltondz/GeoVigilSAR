@@ -19,6 +19,7 @@ import { MOCK_DAMAGE_POINTS } from '@/lib/mock-data'
 import type { VulnerabilityScore } from '@/lib/vulnerability'
 import type { AircraftState } from '@/lib/opensky'
 import type { SatellitePass } from '@/lib/orbits'
+import type { CopernicusProduct } from '@/lib/copernicus'
 
 interface Earthquake {
   id: string
@@ -80,6 +81,9 @@ export default function MapLibreMap({
   const [vulnerabilityScores, setVulnerabilityScores] = useState<VulnerabilityScore[]>([])
   const [aircraft, setAircraft] = useState<AircraftState[]>([])
   const [satellitePasses, setSatellitePasses] = useState<SatellitePass[]>([])
+  const [sarPostProducts, setSarPostProducts] = useState<CopernicusProduct[]>([])
+  const [opticalPreProducts, setOpticalPreProducts] = useState<CopernicusProduct[]>([])
+  const [opticalPostProducts, setOpticalPostProducts] = useState<CopernicusProduct[]>([])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -183,6 +187,36 @@ export default function MapLibreMap({
     return () => clearInterval(id)
   }, [activeLayers.airTraffic])
 
+  // Fetch SAR post-event products when the layer is activated
+  useEffect(() => {
+    if (!activeLayers.sarChange) return
+    if (sarPostProducts.length > 0) return
+    fetch(`/api/sar-tiles?eventId=${eventId}`)
+      .then(r => r.json())
+      .then((d: { post: CopernicusProduct[] }) => setSarPostProducts(d.post ?? []))
+      .catch(() => {})
+  }, [activeLayers.sarChange, eventId, sarPostProducts.length])
+
+  // Fetch optical pre-event products when the layer is activated
+  useEffect(() => {
+    if (!activeLayers.opticalPre) return
+    if (opticalPreProducts.length > 0) return
+    fetch(`/api/optical?eventId=${eventId}&phase=pre`)
+      .then(r => r.json())
+      .then((d: { products: CopernicusProduct[] }) => setOpticalPreProducts(d.products ?? []))
+      .catch(() => {})
+  }, [activeLayers.opticalPre, eventId, opticalPreProducts.length])
+
+  // Fetch optical post-event products when the layer is activated
+  useEffect(() => {
+    if (!activeLayers.opticalPost) return
+    if (opticalPostProducts.length > 0) return
+    fetch(`/api/optical?eventId=${eventId}&phase=post`)
+      .then(r => r.json())
+      .then((d: { products: CopernicusProduct[] }) => setOpticalPostProducts(d.products ?? []))
+      .catch(() => {})
+  }, [activeLayers.opticalPost, eventId, opticalPostProducts.length])
+
   // Fly to target when supplied from parent (ZoneSearch)
   useEffect(() => {
     if (!flyTo || !mapRef.current) return
@@ -197,6 +231,26 @@ export default function MapLibreMap({
     setSelectedNode(point)
     setComparatorOpen(true)
   }, [])
+
+  // Transform CopernicusProduct → SARTile for the layer component
+  const sarTiles = sarPostProducts.map(p => ({
+    url: p.quicklookUrl,
+    bounds: p.bbox,
+    phase: 'post' as const,
+    date: p.startDate,
+  }))
+  const optPreTiles = opticalPreProducts.map(p => ({
+    url: p.quicklookUrl,
+    bounds: p.bbox,
+    phase: 'pre' as const,
+    date: p.startDate,
+  }))
+  const optPostTiles = opticalPostProducts.map(p => ({
+    url: p.quicklookUrl,
+    bounds: p.bbox,
+    phase: 'post' as const,
+    date: p.startDate,
+  }))
 
   return (
     <>
@@ -235,8 +289,21 @@ export default function MapLibreMap({
             />
             <SARLayer
               map={mapRef.current}
-              tiles={[]}
+              tiles={sarTiles}
               visible={activeLayers.sarChange}
+              sourcePrefix="sar"
+            />
+            <SARLayer
+              map={mapRef.current}
+              tiles={optPreTiles}
+              visible={activeLayers.opticalPre ?? false}
+              sourcePrefix="optical-pre"
+            />
+            <SARLayer
+              map={mapRef.current}
+              tiles={optPostTiles}
+              visible={activeLayers.opticalPost ?? false}
+              sourcePrefix="optical-post"
             />
             <DamagePointsLayer
               map={mapRef.current}

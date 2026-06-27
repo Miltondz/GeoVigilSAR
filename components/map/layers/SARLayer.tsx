@@ -16,16 +16,18 @@ interface SARLayerProps {
   tiles: SARTile[]
   visible: boolean
   opacity?: number
+  /** Prefix for MapLibre source/layer IDs — must be unique per mounted instance */
+  sourcePrefix?: string
 }
 
-export default function SARLayer({ map, tiles, visible, opacity = 0.7 }: SARLayerProps) {
+export default function SARLayer({ map, tiles, visible, opacity = 0.7, sourcePrefix = 'sar' }: SARLayerProps) {
   useEffect(() => {
     const layers: string[] = []
     const sources: string[] = []
 
     tiles.forEach((tile, i) => {
-      const sourceId = `sar-${tile.phase}-${i}`
-      const layerId = `sar-layer-${tile.phase}-${i}`
+      const sourceId = `${sourcePrefix}-${tile.phase}-${i}`
+      const layerId = `${sourcePrefix}-layer-${tile.phase}-${i}`
       sources.push(sourceId)
       layers.push(layerId)
 
@@ -65,7 +67,7 @@ export default function SARLayer({ map, tiles, visible, opacity = 0.7 }: SARLaye
       layers.forEach(id => { if (map.getLayer(id)) map.removeLayer(id) })
       sources.forEach(id => { if (map.getSource(id)) map.removeSource(id) })
     }
-  }, [map, tiles, visible, opacity])
+  }, [map, tiles, visible, opacity, sourcePrefix])
 
   return null
 }
