@@ -156,6 +156,16 @@
     "copy": "COPIAR",
     "copied": "COPIADO"
   },
+  "dataSources": {
+    "panel_title": "FUENTES DE DATOS",
+    "gdacs_alert": "Alerta GDACS",
+    "population_affected": "Población afectada",
+    "ems_activations": "Activaciones Copernicus EMS",
+    "hot_projects": "Proyectos HOT OSM",
+    "relief_disasters": "Desastres ReliefWeb",
+    "no_activation": "Sin activación registrada",
+    "percent_mapped": "% mapeado"
+  },
   "errors": {
     "mapLoad": "Error cargando el mapa",
     "dataFetch": "Error obteniendo datos",

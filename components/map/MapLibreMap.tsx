@@ -24,6 +24,8 @@ import type { SatellitePass } from '@/lib/orbits'
 import type { CopernicusProduct } from '@/lib/copernicus'
 import FIRMSLayer from './layers/FIRMSLayer'
 import type { FirmsFire } from '@/lib/firms'
+import EMSCLayer from './layers/EMSCLayer'
+import type { EmscEvent } from '@/lib/emsc'
 
 interface Earthquake {
   id: string
@@ -89,6 +91,7 @@ export default function MapLibreMap({
   const [opticalPreProducts, setOpticalPreProducts] = useState<CopernicusProduct[]>([])
   const [opticalPostProducts, setOpticalPostProducts] = useState<CopernicusProduct[]>([])
   const [fires, setFires] = useState<FirmsFire[]>([])
+  const [emscEvents, setEmscEvents] = useState<EmscEvent[]>([])
 
   const [insarData, setInsarData] = useState<{
     browseUrl: string
@@ -238,6 +241,16 @@ export default function MapLibreMap({
       .catch(() => {})
   }, [activeLayers.firms, fires.length])
 
+  // Fetch EMSC seismic events when layer toggled on
+  useEffect(() => {
+    if (!activeLayers.emscSeismic) return
+    if (emscEvents.length > 0) return
+    fetch('/api/emsc')
+      .then(r => r.json())
+      .then((d: { events: EmscEvent[] }) => setEmscEvents(d.events ?? []))
+      .catch(() => {})
+  }, [activeLayers.emscSeismic, emscEvents.length])
+
   // Fetch InSAR job status when the layer is toggled on
   useEffect(() => {
     if (!activeLayers.insar) return
@@ -383,6 +396,11 @@ export default function MapLibreMap({
               bbox={insarData?.bbox ?? [-74, 0, -59, 13]}
               visible={activeLayers.insar ?? false}
               jobStatus={insarJobStatus}
+            />
+            <EMSCLayer
+              map={mapRef.current}
+              events={emscEvents}
+              visible={activeLayers.emscSeismic ?? false}
             />
           </>
         )}

@@ -16,6 +16,7 @@ interface DashboardHeaderProps {
   onEventChange: (eventId: string) => void
   onZoomTo?: (lat: number, lng: number, name: string) => void
   onSitrepOpen?: () => void
+  onDataSourcesOpen?: () => void
   earthquakes?: {
     id: string; magnitude: number; depth: number; lat: number; lng: number
     time: number; place: string; classification: string
@@ -30,6 +31,7 @@ export default function DashboardHeader({
   onEventChange,
   onZoomTo,
   onSitrepOpen,
+  onDataSourcesOpen,
   earthquakes = [],
 }: DashboardHeaderProps) {
   const router = useRouter()
@@ -116,6 +118,26 @@ export default function DashboardHeader({
         </button>
 
         <LayerToggle layers={activeLayers} onChange={onLayersChange} />
+
+        {/* DATA SOURCES button */}
+        {onDataSourcesOpen && (
+          <button
+            onClick={onDataSourcesOpen}
+            style={{
+              fontFamily: 'var(--font-hud)',
+              fontSize: '0.625rem',
+              letterSpacing: '0.15em',
+              color: 'var(--color-cyan)',
+              background: 'none',
+              border: '1px solid var(--color-cyan)',
+              padding: '0.25rem 0.625rem',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+            }}
+          >
+            DATA SOURCES
+          </button>
+        )}
 
         {/* SITREP button */}
         {onSitrepOpen && (

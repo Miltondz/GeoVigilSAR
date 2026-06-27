@@ -8,6 +8,8 @@ import GeoVigilMap from '@/components/map/GeoVigilMap'
 import TimelineSlider from '@/components/map/controls/TimelineSlider'
 import HospitalStatusPanel from '@/components/panels/HospitalStatusPanel'
 import SituationReportModal from '@/components/panels/SituationReportModal'
+import InSARPanel from '@/components/panels/InSARPanel'
+import DataSourcesPanel from '@/components/panels/DataSourcesPanel'
 import {
   MOCK_STATS,
   MOCK_MAIN_SHOCKS,
@@ -39,6 +41,8 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   vulnerability:   false,
   airTraffic:      false,
   satellites:      false,
+  insar:           false,
+  emscSeismic:     false,
 }
 
 export default function DashboardPage({ params }: { params: { locale: string } }) {
@@ -47,6 +51,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [activeEventId, setActiveEventId] = useState('VEN-2406')
   const [hospitalPanelOpen, setHospitalPanelOpen] = useState(false)
   const [sitrepOpen, setSitrepOpen] = useState(false)
+  const [insarPanelOpen, setInsarPanelOpen] = useState(false)
+  const [dataSourcesPanelOpen, setDataSourcesPanelOpen] = useState(false)
   const [mapTarget, setMapTarget] = useState<{ lat: number; lng: number; name: string } | null>(null)
   const [liveEarthquakes, setLiveEarthquakes] = useState<{
     id: string; magnitude: number; depth: number; lat: number; lng: number
@@ -55,7 +61,15 @@ export default function DashboardPage({ params }: { params: { locale: string } }
 
   const handleLayerChange = useCallback((id: string, visible: boolean) => {
     setActiveLayers(prev => ({ ...prev, [id]: visible }))
+    if (id === 'insar' && visible) setInsarPanelOpen(true)
   }, [])
+
+  const handleInsarJobReady = useCallback(
+    (_browseUrl: string, _bbox: [number, number, number, number]) => {
+      setActiveLayers(prev => ({ ...prev, insar: true }))
+    },
+    []
+  )
 
   const handleEventChange = useCallback((eventId: string) => {
     setActiveEventId(eventId)
@@ -107,6 +121,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         onEventChange={handleEventChange}
         onZoomTo={handleZoomTo}
         onSitrepOpen={() => setSitrepOpen(true)}
+        onDataSourcesOpen={() => setDataSourcesPanelOpen(o => !o)}
         earthquakes={liveEarthquakes}
       />
 
@@ -159,6 +174,19 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         onClose={() => setSitrepOpen(false)}
         eventId={activeEventId}
         locale={params.locale}
+      />
+
+      <InSARPanel
+        visible={insarPanelOpen}
+        onClose={() => setInsarPanelOpen(false)}
+        eventId={activeEventId}
+        onJobReady={handleInsarJobReady}
+      />
+
+      <DataSourcesPanel
+        visible={dataSourcesPanelOpen}
+        onClose={() => setDataSourcesPanelOpen(false)}
+        eventId={activeEventId}
       />
     </div>
   )

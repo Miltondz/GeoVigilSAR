@@ -15,6 +15,7 @@ const LAYER_GROUPS = [
     layers: [
       { id: 'epicenters',      label: 'Epicentros' },
       { id: 'aftershocks',     label: 'Réplicas en tiempo real' },
+      { id: 'emscSeismic',     label: 'Réplicas EMSC (EU sensors)' },
       { id: 'shakemap',        label: 'ShakeMap — Intensidad PGA' },
       { id: 'faults',          label: 'Fallas geológicas' },
       { id: 'seismicHistory',  label: 'Historial sísmico' },
