@@ -1,0 +1,202 @@
+[
+  {
+    "osmId": "way/23874651",
+    "name": "Hospital Universitario de Caracas",
+    "lat": 10.4927,
+    "lng": -66.9024,
+    "status": "AMBER",
+    "capacity": 700,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/34521876",
+    "name": "Hospital Vargas de Caracas",
+    "lat": 10.4989,
+    "lng": -66.9135,
+    "status": "AMBER",
+    "capacity": 500,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/45612390",
+    "name": "Hospital de Niños JM de los Ríos",
+    "lat": 10.4852,
+    "lng": -66.9052,
+    "status": "GREEN",
+    "capacity": 350,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/56734821",
+    "name": "Hospital Domingo Luciani (El Llanito)",
+    "lat": 10.4921,
+    "lng": -66.8402,
+    "status": "GREEN",
+    "capacity": 450,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/67845932",
+    "name": "Hospital Pérez Carreño",
+    "lat": 10.5103,
+    "lng": -66.8804,
+    "status": "AMBER",
+    "capacity": 400,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/78956043",
+    "name": "Hospital Dr. José Ignacio Baldó (El Algodonal)",
+    "lat": 10.4441,
+    "lng": -66.9532,
+    "status": "RED",
+    "capacity": 600,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/89067154",
+    "name": "Hospital Dr. Luis Razetti (La Guaira)",
+    "lat": 10.6011,
+    "lng": -66.9288,
+    "status": "RED",
+    "capacity": 200,
+    "source": "ocha",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/90178265",
+    "name": "Hospital Dr. José María Vargas (Vargas)",
+    "lat": 10.6130,
+    "lng": -66.9410,
+    "status": "RED",
+    "capacity": 180,
+    "source": "ocha",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/12389376",
+    "name": "Hospital Central de Valencia",
+    "lat": 10.1812,
+    "lng": -68.0014,
+    "status": "AMBER",
+    "capacity": 600,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/23490487",
+    "name": "Hospital Universitario Ángel Larralde",
+    "lat": 10.1904,
+    "lng": -68.0102,
+    "status": "AMBER",
+    "capacity": 550,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/34501598",
+    "name": "Hospital de Niños Valencia",
+    "lat": 10.1740,
+    "lng": -67.9880,
+    "status": "RED",
+    "capacity": 200,
+    "source": "ocha",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/45612709",
+    "name": "Hospital Central de Maracay",
+    "lat": 10.2444,
+    "lng": -67.5784,
+    "status": "AMBER",
+    "capacity": 500,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/56723810",
+    "name": "Hospital Universitario de Maracay",
+    "lat": 10.2342,
+    "lng": -67.5982,
+    "status": "RED",
+    "capacity": 450,
+    "source": "ocha",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/67834921",
+    "name": "Hospital Central de Barquisimeto",
+    "lat": 10.0704,
+    "lng": -69.3204,
+    "status": "GREEN",
+    "capacity": 600,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/78945032",
+    "name": "Hospital Universitario Antonio Pineda",
+    "lat": 10.0803,
+    "lng": -69.3102,
+    "status": "GREEN",
+    "capacity": 700,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/89056143",
+    "name": "Hospital de Especialidades Pediátricas Barquisimeto",
+    "lat": 10.0652,
+    "lng": -69.3310,
+    "status": "GREEN",
+    "capacity": 150,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/90167254",
+    "name": "Hospital Universitario de Maracaibo",
+    "lat": 10.6682,
+    "lng": -71.6232,
+    "status": "GREEN",
+    "capacity": 800,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/11278365",
+    "name": "Hospital Ruiz y Páez (Ciudad Bolívar)",
+    "lat": 8.1272,
+    "lng": -63.5492,
+    "status": "GREEN",
+    "capacity": 400,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/22389476",
+    "name": "Hospital General del Oeste (Caracas)",
+    "lat": 10.4801,
+    "lng": -66.9610,
+    "status": "AMBER",
+    "capacity": 350,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  },
+  {
+    "osmId": "way/33490587",
+    "name": "Hospital Dr. Pablo Acosta Ortiz (Puerto La Cruz)",
+    "lat": 10.2120,
+    "lng": -64.6350,
+    "status": "GREEN",
+    "capacity": 300,
+    "source": "osm",
+    "updatedMs": 1750806240000
+  }
+]

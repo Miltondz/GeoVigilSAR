@@ -11,8 +11,10 @@ import ShakeMapLayer from './layers/ShakeMapLayer'
 import FaultLinesLayer from './layers/FaultLinesLayer'
 import SARLayer from './layers/SARLayer'
 import DamagePointsLayer from './layers/DamagePointsLayer'
+import VulnerabilityHeatmap from './layers/VulnerabilityHeatmap'
 import PhotoComparator from '@/components/panels/PhotoComparator'
 import { MOCK_DAMAGE_POINTS } from '@/lib/mock-data'
+import type { VulnerabilityScore } from '@/lib/vulnerability'
 
 interface Earthquake {
   id: string
@@ -59,6 +61,7 @@ export default function MapLibreMap({
   const [targeting, setTargeting] = useState<{ x: number; y: number; nodeId: string } | null>(null)
   const [comparatorOpen, setComparatorOpen] = useState(false)
   const [selectedNode, setSelectedNode] = useState<typeof MOCK_DAMAGE_POINTS[0] | undefined>()
+  const [vulnerabilityScores, setVulnerabilityScores] = useState<VulnerabilityScore[]>([])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -98,6 +101,25 @@ export default function MapLibreMap({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Fetch vulnerability scores when the layer is toggled on
+  useEffect(() => {
+    if (!activeLayers.vulnerability) return
+    if (vulnerabilityScores.length > 0) return // already loaded
+
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/vulnerability?eventId=${eventId}`)
+        if (!res.ok) return
+        const data = (await res.json()) as VulnerabilityScore[]
+        setVulnerabilityScores(data)
+      } catch {
+        // vulnerability API unavailable — layer renders empty
+      }
+    }
+
+    void load()
+  }, [activeLayers.vulnerability, eventId, vulnerabilityScores.length])
 
   const handleDamagePointClick = useCallback((point: typeof MOCK_DAMAGE_POINTS[0]) => {
     setSelectedNode(point)
@@ -148,6 +170,11 @@ export default function MapLibreMap({
               map={mapRef.current}
               points={MOCK_DAMAGE_POINTS}
               visible={activeLayers.damagePoints ?? false}
+            />
+            <VulnerabilityHeatmap
+              map={mapRef.current}
+              scores={vulnerabilityScores}
+              visible={activeLayers.vulnerability ?? false}
             />
           </>
         )}

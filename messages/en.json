@@ -40,7 +40,20 @@
     "context": "CONTEXT LAYERS",
     "buildings": "OpenStreetMap buildings",
     "population": "Population density",
-    "geoNews": "Geolocated news (GDELT)"
+    "geoNews": "Geolocated news (GDELT)",
+    "analytic": "ANALYTIC / SAR",
+    "vulnerability": "Composite vulnerability"
+  },
+  "vulnerability": {
+    "layer": "Vulnerability",
+    "low": "LOW",
+    "moderate": "MODERATE",
+    "high": "HIGH",
+    "critical": "CRITICAL",
+    "tooltip_sar": "SAR Change",
+    "tooltip_pop": "Population Density",
+    "tooltip_medical": "Medical Access",
+    "legend": "Vulnerability Index"
   },
   "ai": {
     "panelTitle": "SYSTEM / SISTEMA",

@@ -49,6 +49,12 @@ const LAYER_GROUPS = [
       { id: 'geoNews',     label: 'Noticias geolocalizadas' },
     ],
   },
+  {
+    label: 'ANALÍTICO / SAR',
+    layers: [
+      { id: 'vulnerability', label: 'Vulnerabilidad compuesta' },
+    ],
+  },
 ]
 
 export default function LayerToggle({ layers, onChange, className = '' }: LayerToggleProps) {

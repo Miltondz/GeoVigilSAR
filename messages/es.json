@@ -40,7 +40,20 @@
     "context": "CAPAS DE CONTEXTO",
     "buildings": "Edificios OpenStreetMap",
     "population": "Densidad poblacional",
-    "geoNews": "Noticias geolocalizadas (GDELT)"
+    "geoNews": "Noticias geolocalizadas (GDELT)",
+    "analytic": "ANALÍTICO / SAR",
+    "vulnerability": "Vulnerabilidad compuesta"
+  },
+  "vulnerability": {
+    "layer": "Vulnerabilidad",
+    "low": "BAJO",
+    "moderate": "MODERADO",
+    "high": "ALTO",
+    "critical": "CRÍTICO",
+    "tooltip_sar": "Cambio SAR",
+    "tooltip_pop": "Densidad poblacional",
+    "tooltip_medical": "Acceso médico",
+    "legend": "Índice de Vulnerabilidad"
   },
   "ai": {
     "panelTitle": "SISTEMA / SYSTEM",
