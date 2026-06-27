@@ -74,7 +74,7 @@ function toMarker(eq: Earthquake): EarthquakeMarker {
 export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, timelinePhase, timelineMs, flyTo }: GeoVigilMapProps) {
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([])
   const [lastFetch, setLastFetch] = useState(0)
-  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d')
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d')
   const [visionMode, setVisionMode] = useState<VisionMode>('NORMAL')
 
   // Fetch real USGS data

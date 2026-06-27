@@ -82,10 +82,12 @@ export default function Cesium3DGlobe({
           process.env.NEXT_PUBLIC_CESIUM_TOKEN ?? ''
 
         const viewer = new CesiumLib.Viewer(containerRef.current, {
-          // Free OSM imagery — no Ion key needed
+          // UrlTemplateImageryProvider replaces deprecated OpenStreetMapImageryProvider (Cesium 1.107+)
           baseLayer: new CesiumLib.ImageryLayer(
-            new CesiumLib.OpenStreetMapImageryProvider({
-              url: 'https://tile.openstreetmap.org',
+            new CesiumLib.UrlTemplateImageryProvider({
+              url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              credit: '© OpenStreetMap contributors',
+              maximumLevel: 19,
             })
           ),
           // EllipsoidTerrainProvider (flat, free) is the Cesium default;
@@ -195,9 +197,19 @@ export default function Cesium3DGlobe({
       // Seismic wave pulse — animated ellipse expanding from epicenter
       const waveStart = Date.now()
 
-      const waveRadius = new CesiumLib.CallbackProperty(() => {
-        const elapsed = (Date.now() - waveStart) / 1000
-        return ((elapsed % WAVE_PERIOD_S) / WAVE_PERIOD_S) * WAVE_MAX_RADIUS
+      // Cache radius per Cesium frame: both semiMajorAxis and semiMinorAxis share
+      // this same CallbackProperty instance. Using secondsOfDay as cache key ensures
+      // both return the identical value within one render tick, preventing the
+      // semiMajorAxis < semiMinorAxis error at period-reset boundaries.
+      let _waveR = 1000
+      let _waveT = -1
+      const waveRadius = new CesiumLib.CallbackProperty((time: { secondsOfDay: number }) => {
+        if (time.secondsOfDay !== _waveT) {
+          const elapsed = (Date.now() - waveStart) / 1000
+          _waveR = Math.max(1000, ((elapsed % WAVE_PERIOD_S) / WAVE_PERIOD_S) * WAVE_MAX_RADIUS)
+          _waveT = time.secondsOfDay
+        }
+        return _waveR
       }, false)
 
       const waveEnt = viewer.entities.add({

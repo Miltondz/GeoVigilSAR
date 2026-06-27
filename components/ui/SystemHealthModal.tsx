@@ -132,7 +132,7 @@ export default function SystemHealthModal({ onClose, autoClose = true }: SystemH
   // Auto-dismiss after checks complete
   useEffect(() => {
     if (loading || !autoClose) return
-    setCountdown(4)
+    setCountdown(8)
     countdownRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev === null || prev <= 1) {

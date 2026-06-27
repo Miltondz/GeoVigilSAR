@@ -195,3 +195,12 @@ html, body {
   0%   { opacity: 0.8; }
   100% { opacity: 0; }
 }
+
+/* Cesium Viewer internal elements must fill their container */
+.cesium-viewer,
+.cesium-viewer-cesiumWidgetContainer,
+.cesium-widget,
+.cesium-widget canvas {
+  width: 100% !important;
+  height: 100% !important;
+}

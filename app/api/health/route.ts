@@ -80,13 +80,13 @@ function getChecks(): Check[] {
       id: 'reliefweb',
       group: 'HUMANITARIO',
       name: 'ReliefWeb (OCHA)',
-      url: 'https://api.reliefweb.int/v2/disasters?limit=1&appname=geovigil-sar',
+      url: 'https://api.reliefweb.int/v2/countries?limit=1&appname=geovigil-sar&profile=minimal',
     },
     {
       id: 'hotosm',
       group: 'HUMANITARIO',
       name: 'HOT OSM Tasking Manager',
-      url: 'https://tasks.hotosm.org/api/v8/projects/?search=venezuela+earthquake&page=1',
+      url: 'https://tasks.hotosm.org/api/v8/system/banner/',
     },
     {
       id: 'gdelt',
@@ -132,7 +132,7 @@ function getChecks(): Check[] {
       group: 'FOTOGRAFÍA',
       name: 'Mapillary API',
       url: 'https://graph.mapillary.com/me?fields=id',
-      authHeader: mapillaryToken ? `OAuth ${mapillaryToken}` : undefined,
+      authHeader: mapillaryToken ? `Bearer ${mapillaryToken}` : undefined,
     },
   ]
 }
