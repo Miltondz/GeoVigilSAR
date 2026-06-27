@@ -20,13 +20,13 @@ const SUGGESTED = [
   '¿Cuántos rescatados en Caracas?',
 ]
 
-const WELCOME: Message = {
-  role: 'system',
-  content: `Listo. Evento VEN-2406 cargado.\n138 réplicas indexadas.\nFuentes activas: USGS, GDELT, ReliefWeb, Copernicus EMS.`,
+function buildWelcome(eventId: string) {
+  return `Listo. Evento ${eventId} cargado.\nFuentes activas: USGS, GDELT, ReliefWeb, Copernicus EMS.`
 }
 
 export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([WELCOME])
+  const welcomeContent = buildWelcome(eventId)
+  const [messages, setMessages] = useState<Message[]>([{ role: 'system', content: welcomeContent }])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [streamedText, setStreamedText] = useState('')

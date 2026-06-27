@@ -28,6 +28,7 @@ interface Earthquake {
 interface GeoVigilMapProps {
   activeLayers: Record<string, boolean>
   eventId: string
+  onEarthquakesLoaded?: (earthquakes: Earthquake[]) => void
 }
 
 function MapPlaceholder() {
@@ -48,7 +49,7 @@ function MapPlaceholder() {
   )
 }
 
-export default function GeoVigilMap({ activeLayers, eventId }: GeoVigilMapProps) {
+export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded }: GeoVigilMapProps) {
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([])
   const [lastFetch, setLastFetch] = useState(0)
 
@@ -59,8 +60,10 @@ export default function GeoVigilMap({ activeLayers, eventId }: GeoVigilMapProps)
         const res = await fetch(`/api/earthquakes?eventId=${eventId}`)
         if (!res.ok) return
         const data = await res.json()
-        setEarthquakes(data.earthquakes ?? [])
+        const quakes = data.earthquakes ?? []
+        setEarthquakes(quakes)
         setLastFetch(data.lastUpdated)
+        onEarthquakesLoaded?.(quakes)
       } catch {
         // USGS unavailable — map still renders with empty layers
       }
@@ -69,7 +72,7 @@ export default function GeoVigilMap({ activeLayers, eventId }: GeoVigilMapProps)
     load()
     const interval = setInterval(load, 60000)
     return () => clearInterval(interval)
-  }, [eventId])
+  }, [eventId, onEarthquakesLoaded])
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
