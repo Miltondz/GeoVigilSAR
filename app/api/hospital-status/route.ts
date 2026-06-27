@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { loadHospitals } from '@/lib/hospitals'
+
+// Best free model for structured JSON triage output
+const TRIAGE_MODEL = 'google/gemma-4-31b-it:free'
 
 // VEN-2406 epicenter
 const EPICENTER = { lat: 10.4, lng: -68.7 }
@@ -53,14 +55,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const distanceKm = Math.round(haversineKm(hospital.lat, hospital.lng, EPICENTER.lat, EPICENTER.lng) * 10) / 10
 
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      return NextResponse.json(FALLBACK)
-    }
+    const apiKey = process.env.OPENROUTER_API_KEY
+    if (!apiKey) return NextResponse.json(FALLBACK)
 
-    const client = new Anthropic({ apiKey })
-
-    const userPrompt = `Eres un sistema de triaje hospitalario para emergencias sísmicas.
+    const prompt = `Eres un sistema de triaje hospitalario para emergencias sísmicas.
 Hospital: ${hospital.name}, ubicado a ${distanceKm} km del epicentro (Veroes, Yaracuy).
 Sismo principal: Mw 7.5, falla Boconó-Morón-El Pilar, 24 junio 2026.
 Estado reportado: ${hospital.status}.
@@ -70,27 +68,31 @@ Basado en la distancia, magnitud y tipo de falla, evalúa:
 3. Resumen en 1 oración.
 Responde SOLO en JSON: {"status": "GREEN"|"AMBER"|"RED", "summary": "...", "confidence": 0.0-1.0}`
 
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 256,
-      messages: [{ role: 'user', content: userPrompt }],
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
+        'X-Title': 'GeoVigil SAR',
+      },
+      body: JSON.stringify({
+        model: TRIAGE_MODEL,
+        max_tokens: 256,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal: AbortSignal.timeout(15_000),
     })
 
-    const block = message.content[0]
-    if (block.type !== 'text') {
-      return NextResponse.json(FALLBACK)
-    }
+    if (!res.ok) return NextResponse.json(FALLBACK)
 
-    // Extract JSON — model may wrap in code fences
-    const jsonMatch = block.text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      return NextResponse.json(FALLBACK)
-    }
+    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] }
+    const text = data.choices?.[0]?.message?.content ?? ''
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return NextResponse.json(FALLBACK)
 
     const parsed: unknown = JSON.parse(jsonMatch[0])
-    if (!isValidResponse(parsed)) {
-      return NextResponse.json(FALLBACK)
-    }
+    if (!isValidResponse(parsed)) return NextResponse.json(FALLBACK)
 
     return NextResponse.json(parsed)
   } catch {
