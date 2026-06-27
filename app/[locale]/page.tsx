@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import DashboardHeader from '@/components/DashboardHeader'
 import StatsPanel from '@/components/panels/StatsPanel'
 import AIPanel from '@/components/panels/AIPanel'
 import GeoVigilMap from '@/components/map/GeoVigilMap'
 import TimelineSlider from '@/components/map/controls/TimelineSlider'
+import HospitalStatusPanel from '@/components/panels/HospitalStatusPanel'
 import {
   MOCK_STATS,
   MOCK_MAIN_SHOCKS,
@@ -43,6 +44,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [activeLayers, setActiveLayers] = useState(DEFAULT_LAYERS)
   const [timelineValue, setTimelineValue] = useState(75)
   const [activeEventId, setActiveEventId] = useState('VEN-2406')
+  const [hospitalPanelOpen, setHospitalPanelOpen] = useState(false)
   const [liveEarthquakes, setLiveEarthquakes] = useState<{
     id: string; magnitude: number; depth: number; lat: number; lng: number
     time: number; place: string; classification: string
@@ -58,6 +60,20 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   }, [])
 
   const event = getEvent(activeEventId)
+
+  const timelinePhase = useMemo((): 'pre' | 'main' | 'post' => {
+    if (timelineValue < 40) return 'pre'
+    if (timelineValue <= 60) return 'main'
+    return 'post'
+  }, [timelineValue])
+
+  const timelineMs = useMemo((): number => {
+    const events = MOCK_TIMELINE_EVENTS
+    if (events.length < 2) return event.mainShockTime
+    const startMs = new Date(events[0].date + 'T00:00:00Z').getTime()
+    const endMs   = new Date(events[events.length - 1].date + 'T00:00:00Z').getTime()
+    return startMs + (timelineValue / 100) * (endMs - startMs)
+  }, [timelineValue, event.mainShockTime])
 
   // Mock stats — replaced with live data once Convex or polling is wired
   const stats = activeEventId === 'VEN-2406'
@@ -93,6 +109,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
           location={`${event.epicenter.lat.toFixed(2)}°N, ${Math.abs(event.epicenter.lng).toFixed(2)}°W`}
           faultSystem={event.faultSystem}
           dataStream={MOCK_DATA_STREAM}
+          onHospitalDetailOpen={() => setHospitalPanelOpen(true)}
         />
 
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -100,6 +117,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
             activeLayers={activeLayers}
             eventId={activeEventId}
             onEarthquakesLoaded={setLiveEarthquakes}
+            timelinePhase={timelinePhase}
+            timelineMs={timelineMs}
           />
         </div>
 
@@ -118,6 +137,12 @@ export default function DashboardPage({ params }: { params: { locale: string } }
           onChange={setTimelineValue}
         />
       </div>
+
+      <HospitalStatusPanel
+        visible={hospitalPanelOpen}
+        onClose={() => setHospitalPanelOpen(false)}
+        eventId={activeEventId}
+      />
     </div>
   )
 }

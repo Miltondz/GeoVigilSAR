@@ -114,6 +114,22 @@
     "minutes": "min",
     "no_pass": "Sin pase en 24h"
   },
+  "hospitals": {
+    "section": "HOSPITALES",
+    "total": "Total hospitales",
+    "operational": "Operativos",
+    "damaged": "Dañados",
+    "unknown": "Estado desconocido",
+    "analyze_ai": "Analizar con IA",
+    "analyzing": "Analizando...",
+    "view_detail": "VER DETALLE",
+    "distance": "Distancia",
+    "status": {
+      "GREEN": "OPERATIVO",
+      "AMBER": "LIMITADO",
+      "RED": "NO OPERATIVO"
+    }
+  },
   "errors": {
     "mapLoad": "Error cargando el mapa",
     "dataFetch": "Error obteniendo datos",

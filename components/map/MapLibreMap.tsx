@@ -41,6 +41,8 @@ interface MapLibreMapProps {
   earthquakes: Earthquake[]
   center?: [number, number]
   zoom?: number
+  timelinePhase?: 'pre' | 'main' | 'post'
+  timelineMs?: number
 }
 
 // Protomaps free tile style — no key required
@@ -57,6 +59,8 @@ export default function MapLibreMap({
   earthquakes,
   center = [-68.7, 10.4],
   zoom = 7,
+  timelinePhase,
+  timelineMs,
 }: MapLibreMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -250,6 +254,8 @@ export default function MapLibreMap({
           centerLng={viewport.lng}
           zoom={viewport.zoom}
           flightCount={aircraft.length}
+          timelinePhase={timelinePhase}
+          timelineMs={timelineMs}
         />
       </div>
 

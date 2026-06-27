@@ -29,6 +29,8 @@ interface GeoVigilMapProps {
   activeLayers: Record<string, boolean>
   eventId: string
   onEarthquakesLoaded?: (earthquakes: Earthquake[]) => void
+  timelinePhase?: 'pre' | 'main' | 'post'
+  timelineMs?: number
 }
 
 function MapPlaceholder() {
@@ -49,7 +51,7 @@ function MapPlaceholder() {
   )
 }
 
-export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded }: GeoVigilMapProps) {
+export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, timelinePhase, timelineMs }: GeoVigilMapProps) {
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([])
   const [lastFetch, setLastFetch] = useState(0)
 
@@ -80,6 +82,8 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
         activeLayers={activeLayers}
         eventId={eventId}
         earthquakes={earthquakes}
+        timelinePhase={timelinePhase}
+        timelineMs={timelineMs}
       />
 
       {/* Aftershock count badge */}

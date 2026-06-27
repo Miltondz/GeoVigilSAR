@@ -1,8 +1,15 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import DataBar from '@/components/ui/DataBar'
 import PulseRing from '@/components/ui/PulseRing'
+
+interface HospitalCounts {
+  total: number
+  green: number
+  amber: number
+  red: number
+}
 
 interface Stats {
   fatalities: number
@@ -24,6 +31,7 @@ interface StatsPanelProps {
   location: string
   faultSystem: string
   dataStream: StreamItem[]
+  onHospitalDetailOpen?: () => void
 }
 
 const streamColor = {
@@ -39,14 +47,31 @@ export default function StatsPanel({
   location,
   faultSystem,
   dataStream,
+  onHospitalDetailOpen,
 }: StatsPanelProps) {
   const streamRef = useRef<HTMLDivElement>(null)
+  const [hospitalOpen, setHospitalOpen] = useState(false)
+  const [hospitalCounts, setHospitalCounts] = useState<HospitalCounts | null>(null)
 
   useEffect(() => {
     if (streamRef.current) {
       streamRef.current.scrollTop = 0
     }
   }, [dataStream])
+
+  useEffect(() => {
+    fetch(`/api/hospitals?eventId=${eventId}`)
+      .then(r => r.json())
+      .then((data: { status: 'GREEN' | 'AMBER' | 'RED' }[]) => {
+        setHospitalCounts({
+          total: data.length,
+          green: data.filter(h => h.status === 'GREEN').length,
+          amber: data.filter(h => h.status === 'AMBER').length,
+          red:   data.filter(h => h.status === 'RED').length,
+        })
+      })
+      .catch(() => {})
+  }, [eventId])
 
   return (
     <div style={{
@@ -156,6 +181,76 @@ export default function StatsPanel({
             </div>
           ))}
         </div>
+      </div>
+
+      {/* ── Hospitals section ─────────────────────────── */}
+      <div style={{ borderTop: '1px solid var(--color-slate)', flexShrink: 0 }}>
+        {/* Collapsible header */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setHospitalOpen(o => !o)}
+          onKeyDown={e => e.key === 'Enter' && setHospitalOpen(o => !o)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.5rem 0.75rem',
+            cursor: 'pointer',
+          }}
+        >
+          <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', letterSpacing: '0.15em' }}>
+            HOSPITALES
+          </span>
+          <span style={{ color: 'var(--color-muted)', fontSize: '0.5rem' }}>
+            {hospitalOpen ? '▲' : '▼'}
+          </span>
+        </div>
+
+        {hospitalOpen && (
+          <div style={{ padding: '0 0.75rem 0.75rem' }}>
+            {hospitalCounts ? (
+              <>
+                <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-text)', marginBottom: '0.25rem' }}>
+                  Total: {hospitalCounts.total}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.375rem' }}>
+                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.45rem', color: 'var(--color-green)' }}>
+                    ● {hospitalCounts.green} VERDE
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.45rem', color: 'var(--color-amber)' }}>
+                    ● {hospitalCounts.amber} ÁMBAR
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.45rem', color: 'var(--color-red)' }}>
+                    ● {hospitalCounts.red} ROJO
+                  </span>
+                </div>
+                {onHospitalDetailOpen && (
+                  <button
+                    onClick={onHospitalDetailOpen}
+                    style={{
+                      background: 'none',
+                      border: '1px solid var(--color-slate)',
+                      color: 'var(--color-cyan)',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-hud)',
+                      fontSize: '0.45rem',
+                      letterSpacing: '0.1em',
+                      padding: '2px 8px',
+                      width: '100%',
+                    }}
+                  >
+                    VER DETALLE
+                  </button>
+                )}
+              </>
+            ) : (
+              <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.45rem', color: 'var(--color-muted)' }}>
+                CARGANDO...
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
