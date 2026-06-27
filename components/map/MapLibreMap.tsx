@@ -26,6 +26,7 @@ import FIRMSLayer from './layers/FIRMSLayer'
 import type { FirmsFire } from '@/lib/firms'
 import EMSCLayer from './layers/EMSCLayer'
 import type { EmscEvent } from '@/lib/emsc'
+import EMSR884Layer from './layers/EMSR884Layer'
 
 interface Earthquake {
   id: string
@@ -401,6 +402,10 @@ export default function MapLibreMap({
               map={mapRef.current}
               events={emscEvents}
               visible={activeLayers.emscSeismic ?? false}
+            />
+            <EMSR884Layer
+              map={mapRef.current}
+              visible={activeLayers.emsr884 ?? false}
             />
           </>
         )}

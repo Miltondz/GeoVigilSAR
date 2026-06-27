@@ -68,6 +68,13 @@ const LAYER_GROUPS = [
       { id: 'satellites', label: 'Satélites — Sentinel-1' },
     ],
   },
+  {
+    label: 'COPERNICUS EMS',
+    layers: [
+      { id: 'emsr884', label: 'EMSR884 — Zonas de Intervención' },
+      { id: 'insar',   label: 'InSAR — Deformación del suelo' },
+    ],
+  },
 ]
 
 export default function LayerToggle({ layers, onChange, className = '' }: LayerToggleProps) {

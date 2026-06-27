@@ -43,6 +43,7 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   satellites:      false,
   insar:           false,
   emscSeismic:     false,
+  emsr884:         false,
 }
 
 export default function DashboardPage({ params }: { params: { locale: string } }) {
