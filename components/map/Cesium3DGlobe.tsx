@@ -3,6 +3,24 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Viewer as CesiumViewer, Entity as CesiumEntity } from 'cesium'
 
+// Boconó-Morón-El Pilar fault system coordinates [lng, lat, lng, lat, ...]
+// Duplicated from FaultLinesLayer to avoid cross-tree imports
+const FAULT_SEGMENTS: number[][] = [
+  // Falla Boconó
+  [-74.0, 7.8, -73.0, 8.2, -72.0, 8.5, -71.0, 9.0,
+    -70.0, 9.5, -69.5, 9.8, -68.7, 10.2, -68.0, 10.4],
+  // Falla Morón
+  [-68.0, 10.4, -67.5, 10.5, -67.0, 10.6, -66.5, 10.6,
+    -66.0, 10.7, -65.5, 10.7],
+  // Falla El Pilar
+  [-65.5, 10.7, -65.0, 10.7, -64.5, 10.6, -64.0, 10.5,
+    -63.5, 10.4, -63.0, 10.3, -62.5, 10.2, -61.5, 10.1],
+]
+
+const WAVE_PERIOD_S  = 30
+const WAVE_MAX_RADIUS = 800_000 // metres
+const IMPACT_RADIUS   = 100_000 // metres
+
 // Declare CESIUM_BASE_URL on window so we can set it before the dynamic import
 declare global {
   interface Window {
@@ -36,9 +54,10 @@ export default function Cesium3DGlobe({
   earthquakes,
   visible,
 }: Cesium3DGlobeProps) {
-  const containerRef   = useRef<HTMLDivElement>(null)
-  const viewerRef      = useRef<CesiumViewer | null>(null)
-  const entitiesRef    = useRef<CesiumEntity[]>([])
+  const containerRef      = useRef<HTMLDivElement>(null)
+  const viewerRef         = useRef<CesiumViewer | null>(null)
+  const entitiesRef       = useRef<CesiumEntity[]>([])
+  const staticEntitiesRef = useRef<CesiumEntity[]>([])
   const [cesiumReady, setCesiumReady] = useState(false)
   const [error, setError]             = useState<string | null>(null)
 
@@ -120,11 +139,96 @@ export default function Cesium3DGlobe({
       }
       viewerRef.current = null
       entitiesRef.current = []
+      staticEntitiesRef.current = []
     }
     // epicenter is used only for the initial flyTo — intentionally excluded
     // from deps so Cesium re-initializes only once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // ── Add static geometry (fault lines, impact cone, wave pulse) ───────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+
+    const addStaticGeometry = async () => {
+      const CesiumLib = await import('cesium')
+      if (viewer.isDestroyed()) return
+
+      // Remove previous static entities (guard against double-init)
+      for (const ent of staticEntitiesRef.current) {
+        viewer.entities.remove(ent)
+      }
+      staticEntitiesRef.current = []
+
+      // Fault polylines — Boconó-Morón-El Pilar
+      for (const coords of FAULT_SEGMENTS) {
+        const ent = viewer.entities.add({
+          polyline: {
+            positions: CesiumLib.Cartesian3.fromDegreesArray(coords),
+            material: new CesiumLib.PolylineGlowMaterialProperty({
+              glowPower: 0.25,
+              color: CesiumLib.Color.fromCssColorString(C_AMBER),
+            }),
+            width: 3,
+          },
+        })
+        staticEntitiesRef.current.push(ent)
+      }
+
+      // Impact cone — 100 km radius centered on epicenter
+      const coneEnt = viewer.entities.add({
+        position: CesiumLib.Cartesian3.fromDegrees(epicenter.lng, epicenter.lat),
+        ellipse: {
+          semiMajorAxis: IMPACT_RADIUS,
+          semiMinorAxis: IMPACT_RADIUS,
+          material: CesiumLib.Color.fromCssColorString(C_RED).withAlpha(0.2),
+          outline: true,
+          outlineColor: CesiumLib.Color.fromCssColorString(C_RED).withAlpha(0.7),
+          outlineWidth: 2,
+          height: 0,
+        },
+      })
+      staticEntitiesRef.current.push(coneEnt)
+
+      // Seismic wave pulse — animated ellipse expanding from epicenter
+      const waveStart = Date.now()
+
+      const waveRadius = new CesiumLib.CallbackProperty(() => {
+        const elapsed = (Date.now() - waveStart) / 1000
+        return ((elapsed % WAVE_PERIOD_S) / WAVE_PERIOD_S) * WAVE_MAX_RADIUS
+      }, false)
+
+      const waveEnt = viewer.entities.add({
+        position: CesiumLib.Cartesian3.fromDegrees(epicenter.lng, epicenter.lat),
+        ellipse: {
+          semiMajorAxis: waveRadius,
+          semiMinorAxis: waveRadius,
+          material: CesiumLib.Color.fromCssColorString(C_AMBER).withAlpha(0.08),
+          outline: true,
+          outlineColor: CesiumLib.Color.fromCssColorString(C_AMBER).withAlpha(0.35),
+          outlineWidth: 1,
+          height: 0,
+        },
+      })
+      staticEntitiesRef.current.push(waveEnt)
+    }
+
+    addStaticGeometry()
+
+    return () => {
+      const v = viewerRef.current
+      if (v && !v.isDestroyed()) {
+        for (const ent of staticEntitiesRef.current) {
+          v.entities.remove(ent)
+        }
+      }
+      staticEntitiesRef.current = []
+    }
+    // epicenter values are constant — excluded from deps intentionally
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady])
 
   // ── Update earthquake markers when data changes ───────────────────────────
   useEffect(() => {

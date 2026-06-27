@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 interface TargetingOverlayProps {
   point?: { x: number; y: number } | null
   nodeId?: string
+  coords?: { lat: number; lng: number }
   onClose?: () => void
 }
 
@@ -23,14 +24,19 @@ function Bracket({ corner }: { corner: 'tl' | 'tr' | 'bl' | 'br' }) {
   )
 }
 
-export default function TargetingOverlay({ point, nodeId, onClose }: TargetingOverlayProps) {
+export default function TargetingOverlay({ point, nodeId, coords, onClose }: TargetingOverlayProps) {
   const [visible, setVisible] = useState(false)
+  const [acquired, setAcquired] = useState(false)
 
   useEffect(() => {
     if (point) {
       setVisible(true)
+      setAcquired(true)
+      const t = setTimeout(() => setAcquired(false), 150)
+      return () => clearTimeout(t)
     } else {
       setVisible(false)
+      setAcquired(false)
     }
   }, [point])
 
@@ -54,29 +60,68 @@ export default function TargetingOverlay({ point, nodeId, onClose }: TargetingOv
         cursor: 'pointer',
         zIndex: 50,
         animation: 'bracket-converge 300ms ease-out forwards',
+        overflow: 'visible',
       }}
     >
+      {/* Acquisition flash */}
+      {acquired && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'rgba(255,255,255,0.8)',
+            animation: 'targeting-acquire 150ms ease-out forwards',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
+      {/* Scan line */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: '100%',
+          height: 2,
+          backgroundColor: 'var(--color-green)',
+          opacity: 0.15,
+          animation: 'targeting-scan 2s ease-in-out infinite',
+          pointerEvents: 'none',
+        }}
+      />
+
       <Bracket corner="tl" />
       <Bracket corner="tr" />
       <Bracket corner="bl" />
       <Bracket corner="br" />
-      {nodeId && (
-        <div style={{
+
+      {/* Info box */}
+      <div
+        style={{
           position: 'absolute',
           top: '100%',
           left: '50%',
           transform: 'translateX(-50%)',
-          marginTop: 4,
+          marginTop: 6,
           fontFamily: 'var(--font-hud)',
           fontSize: '0.5rem',
           color: 'var(--color-green)',
           whiteSpace: 'nowrap',
           letterSpacing: '0.1em',
           textShadow: '0 0 6px var(--color-green)',
-        }}>
-          {nodeId}
-        </div>
-      )}
+          lineHeight: 1.6,
+          textAlign: 'left',
+        }}
+      >
+        {nodeId && <div>NODE-ID: {nodeId}</div>}
+        {coords && (
+          <div>
+            LAT: {coords.lat.toFixed(4)} LNG: {coords.lng.toFixed(4)}
+          </div>
+        )}
+        <div>STATUS: LOCKED</div>
+      </div>
     </div>
   )
 }

@@ -5,6 +5,9 @@ import { useState, useEffect } from 'react'
 import Scanlines from './overlays/Scanlines'
 import HUDCorners from './overlays/HUDCorners'
 import ViewModeToggle from './controls/ViewModeToggle'
+import VisionModeOverlay from './overlays/VisionModeOverlay'
+import VisionModeControl from './controls/VisionModeControl'
+import type { VisionMode } from './overlays/VisionModeOverlay'
 import type { EarthquakeMarker } from './Cesium3DGlobe'
 
 // MapLibre requires client-only — no SSR
@@ -65,6 +68,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([])
   const [lastFetch, setLastFetch] = useState(0)
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d')
+  const [visionMode, setVisionMode] = useState<VisionMode>('NORMAL')
 
   // Fetch real USGS data
   useEffect(() => {
@@ -115,13 +119,20 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
         visible={viewMode === '3d'}
       />
 
-      {/* View mode toggle — top-right HUD button */}
+      {/* Vision mode overlay — covers full map canvas, below UI controls */}
+      <VisionModeOverlay mode={visionMode} />
+
+      {/* Top-right HUD controls — above the vision overlay */}
       <div style={{
         position: 'absolute',
         top: 8,
         right: 8,
-        zIndex: 30,
+        zIndex: 60,
+        display: 'flex',
+        gap: 4,
+        alignItems: 'center',
       }}>
+        <VisionModeControl mode={visionMode} onChange={setVisionMode} />
         <ViewModeToggle mode={viewMode} onChange={setViewMode} />
       </div>
 

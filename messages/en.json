@@ -135,6 +135,13 @@
     "3d": "3D GLOBE",
     "toggle": "Toggle view"
   },
+  "visionMode": {
+    "label": "VISUAL MODE",
+    "NORMAL": "NORMAL",
+    "FLIR": "FLIR",
+    "NVG": "NVG",
+    "CRT": "CRT"
+  },
   "errors": {
     "mapLoad": "Error loading map",
     "dataFetch": "Error fetching data",

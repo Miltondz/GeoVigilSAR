@@ -66,7 +66,7 @@ export default function MapLibreMap({
   const mapRef = useRef<maplibregl.Map | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
   const [viewport, setViewport] = useState({ lat: center[1], lng: center[0], zoom })
-  const [targeting, setTargeting] = useState<{ x: number; y: number; nodeId: string } | null>(null)
+  const [targeting, setTargeting] = useState<{ x: number; y: number; nodeId: string; coords?: { lat: number; lng: number } } | null>(null)
   const [comparatorOpen, setComparatorOpen] = useState(false)
   const [selectedNode, setSelectedNode] = useState<typeof MOCK_DAMAGE_POINTS[0] | undefined>()
   const [vulnerabilityScores, setVulnerabilityScores] = useState<VulnerabilityScore[]>([])
@@ -99,7 +99,12 @@ export default function MapLibreMap({
 
     map.on('click', (e) => {
       const { x, y } = e.point
-      setTargeting({ x, y, nodeId: genNodeId(eventId) })
+      setTargeting({
+        x,
+        y,
+        nodeId: genNodeId(eventId),
+        coords: { lat: e.lngLat.lat, lng: e.lngLat.lng },
+      })
     })
 
     mapRef.current = map
@@ -243,6 +248,7 @@ export default function MapLibreMap({
           <TargetingOverlay
             point={{ x: targeting.x, y: targeting.y }}
             nodeId={targeting.nodeId}
+            coords={targeting.coords}
             onClose={() => setTargeting(null)}
           />
         )}

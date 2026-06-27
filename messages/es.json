@@ -135,6 +135,13 @@
     "3d": "3D GLOBO",
     "toggle": "Cambiar vista"
   },
+  "visionMode": {
+    "label": "MODO VISUAL",
+    "NORMAL": "NORMAL",
+    "FLIR": "FLIR",
+    "NVG": "NVG",
+    "CRT": "CRT"
+  },
   "errors": {
     "mapLoad": "Error cargando el mapa",
     "dataFetch": "Error obteniendo datos",
