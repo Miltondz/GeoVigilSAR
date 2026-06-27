@@ -1,6 +1,6 @@
 import createNextIntlPlugin from 'next-intl/plugin'
 
-const withNextIntl = createNextIntlPlugin()
+const withNextIntl = createNextIntlPlugin('./i18n/request.ts')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -10,8 +10,9 @@ const nextConfig = {
   },
 
   // Prevent the server-side bundler from trying to load cesium (client-only)
-  // Note: renamed to serverExternalPackages in Next.js 15; using v14 name here.
-  serverComponentsExternalPackages: ['cesium', '@cesium/engine', '@cesium/widgets'],
+  experimental: {
+    serverComponentsExternalPackages: ['cesium', '@cesium/engine', '@cesium/widgets'],
+  },
 
   images: {
     remotePatterns: [
