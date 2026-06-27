@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import type { Map as MapLibreMap } from 'maplibre-gl'
+import { isMapAlive } from './mapUtils'
 
 interface Earthquake {
   id: string
@@ -115,6 +116,7 @@ export default function EarthquakeLayer({ map, earthquakes, visible, showAfterSh
     }
 
     return () => {
+      if (!isMapAlive(map)) return
       for (const id of ['clusters', 'cluster-count', LAYER_MAIN, LAYER_AFTERSHOCKS]) {
         if (map.getLayer(id)) map.removeLayer(id)
       }

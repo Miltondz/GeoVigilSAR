@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import type { Map as MapLibreMap } from 'maplibre-gl'
+import { isMapAlive } from './mapUtils'
 
 interface SARTile {
   url: string
@@ -60,6 +61,7 @@ export default function SARLayer({ map, tiles, visible, opacity = 0.7 }: SARLaye
     })
 
     return () => {
+      if (!isMapAlive(map)) return
       layers.forEach(id => { if (map.getLayer(id)) map.removeLayer(id) })
       sources.forEach(id => { if (map.getSource(id)) map.removeSource(id) })
     }

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import type { Map as MapLibreMap } from 'maplibre-gl'
+import { isMapAlive } from './mapUtils'
 
 interface FaultLinesLayerProps {
   map: MapLibreMap
@@ -76,6 +77,7 @@ export default function FaultLinesLayer({ map, visible }: FaultLinesLayerProps) 
     }
 
     return () => {
+      if (!isMapAlive(map)) return
       if (map.getLayer(LAYER)) map.removeLayer(LAYER)
       if (map.getSource(SOURCE)) map.removeSource(SOURCE)
     }

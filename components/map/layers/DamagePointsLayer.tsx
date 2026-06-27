@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import type { Map as MapLibreMap, GeoJSONSource } from 'maplibre-gl'
+import { isMapAlive } from './mapUtils'
 
 export interface DamagePoint {
   id: string
@@ -105,6 +106,7 @@ export default function DamagePointsLayer({ map, points, visible }: DamagePoints
     if (map.getLayer(LAYER_LABEL)) map.setLayoutProperty(LAYER_LABEL, 'visibility', vis)
 
     return () => {
+      if (!isMapAlive(map)) return
       if (map.getLayer(LAYER_LABEL)) map.removeLayer(LAYER_LABEL)
       if (map.getLayer(LAYER_FILL))  map.removeLayer(LAYER_FILL)
       if (map.getSource(SOURCE_ID))  map.removeSource(SOURCE_ID)
