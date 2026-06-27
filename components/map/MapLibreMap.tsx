@@ -13,10 +13,12 @@ import SARLayer from './layers/SARLayer'
 import DamagePointsLayer from './layers/DamagePointsLayer'
 import VulnerabilityHeatmap from './layers/VulnerabilityHeatmap'
 import AirTrafficLayer from './layers/AirTrafficLayer'
+import SatelliteTrackLayer from './layers/SatelliteTrackLayer'
 import PhotoComparator from '@/components/panels/PhotoComparator'
 import { MOCK_DAMAGE_POINTS } from '@/lib/mock-data'
 import type { VulnerabilityScore } from '@/lib/vulnerability'
 import type { AircraftState } from '@/lib/opensky'
+import type { SatellitePass } from '@/lib/orbits'
 
 interface Earthquake {
   id: string
@@ -65,6 +67,7 @@ export default function MapLibreMap({
   const [selectedNode, setSelectedNode] = useState<typeof MOCK_DAMAGE_POINTS[0] | undefined>()
   const [vulnerabilityScores, setVulnerabilityScores] = useState<VulnerabilityScore[]>([])
   const [aircraft, setAircraft] = useState<AircraftState[]>([])
+  const [satellitePasses, setSatellitePasses] = useState<SatellitePass[]>([])
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -123,6 +126,25 @@ export default function MapLibreMap({
 
     void load()
   }, [activeLayers.vulnerability, eventId, vulnerabilityScores.length])
+
+  // Fetch satellite passes once when layer is toggled on (TLE valid 12h)
+  useEffect(() => {
+    if (!activeLayers.satellites) return
+    if (satellitePasses.length > 0) return
+
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/satellites?eventId=${eventId}`)
+        if (!res.ok) return
+        const data = (await res.json()) as { satellites: SatellitePass[] }
+        setSatellitePasses(data.satellites ?? [])
+      } catch {
+        // Celestrak unavailable — layer renders empty
+      }
+    }
+
+    void load()
+  }, [activeLayers.satellites, eventId, satellitePasses.length])
 
   // Fetch + poll air traffic when the layer is active (every 30 s)
   useEffect(() => {
@@ -203,6 +225,11 @@ export default function MapLibreMap({
               map={mapRef.current}
               aircraft={aircraft}
               visible={activeLayers.airTraffic ?? false}
+            />
+            <SatelliteTrackLayer
+              map={mapRef.current}
+              passes={satellitePasses}
+              visible={activeLayers.satellites ?? false}
             />
           </>
         )}

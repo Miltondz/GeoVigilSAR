@@ -61,6 +61,12 @@ const LAYER_GROUPS = [
       { id: 'airTraffic', label: 'Tráfico Aéreo' },
     ],
   },
+  {
+    label: 'ORBITAL',
+    layers: [
+      { id: 'satellites', label: 'Satélites — Sentinel-1' },
+    ],
+  },
 ]
 
 export default function LayerToggle({ layers, onChange, className = '' }: LayerToggleProps) {

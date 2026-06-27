@@ -105,6 +105,15 @@
       "EMERGENCY_VEHICLE": "Emergencia"
     }
   },
+  "satellites": {
+    "layer": "Satélites",
+    "sar_window": "Ventana SAR",
+    "next_pass": "Próximo Pase",
+    "altitude": "Altitud",
+    "orbit_class": "Clase Orbital",
+    "minutes": "min",
+    "no_pass": "Sin pase en 24h"
+  },
   "errors": {
     "mapLoad": "Error cargando el mapa",
     "dataFetch": "Error obteniendo datos",
