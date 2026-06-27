@@ -10,6 +10,8 @@ import EarthquakeLayer from './layers/EarthquakeLayer'
 import ShakeMapLayer from './layers/ShakeMapLayer'
 import FaultLinesLayer from './layers/FaultLinesLayer'
 import SARLayer from './layers/SARLayer'
+import InSARLayer from './layers/InSARLayer'
+import type { InSARJobStatus } from './layers/InSARLayer'
 import DamagePointsLayer from './layers/DamagePointsLayer'
 import VulnerabilityHeatmap from './layers/VulnerabilityHeatmap'
 import AirTrafficLayer from './layers/AirTrafficLayer'
@@ -20,6 +22,8 @@ import type { VulnerabilityScore } from '@/lib/vulnerability'
 import type { AircraftState } from '@/lib/opensky'
 import type { SatellitePass } from '@/lib/orbits'
 import type { CopernicusProduct } from '@/lib/copernicus'
+import FIRMSLayer from './layers/FIRMSLayer'
+import type { FirmsFire } from '@/lib/firms'
 
 interface Earthquake {
   id: string
@@ -84,6 +88,13 @@ export default function MapLibreMap({
   const [sarPostProducts, setSarPostProducts] = useState<CopernicusProduct[]>([])
   const [opticalPreProducts, setOpticalPreProducts] = useState<CopernicusProduct[]>([])
   const [opticalPostProducts, setOpticalPostProducts] = useState<CopernicusProduct[]>([])
+  const [fires, setFires] = useState<FirmsFire[]>([])
+
+  const [insarData, setInsarData] = useState<{
+    browseUrl: string
+    bbox: [number, number, number, number]
+  } | null>(null)
+  const [insarJobStatus, setInsarJobStatus] = useState<InSARJobStatus>('none')
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -217,6 +228,42 @@ export default function MapLibreMap({
       .catch(() => {})
   }, [activeLayers.opticalPost, eventId, opticalPostProducts.length])
 
+  // Fetch FIRMS fire data when layer toggled on
+  useEffect(() => {
+    if (!activeLayers.firms) return
+    if (fires.length > 0) return
+    fetch('/api/firms')
+      .then(r => r.json())
+      .then((d: { fires: FirmsFire[] }) => setFires(d.fires ?? []))
+      .catch(() => {})
+  }, [activeLayers.firms, fires.length])
+
+  // Fetch InSAR job status when the layer is toggled on
+  useEffect(() => {
+    if (!activeLayers.insar) return
+
+    interface InsarStatusResponse {
+      hasSucceeded: boolean
+      latestBrowseUrl: string | null
+    }
+
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/insar?action=status&eventId=${eventId}`)
+        if (!res.ok) return
+        const data = (await res.json()) as InsarStatusResponse
+        if (data.hasSucceeded && data.latestBrowseUrl) {
+          setInsarData({ browseUrl: data.latestBrowseUrl, bbox: [-74, 0, -59, 13] })
+          setInsarJobStatus('ready')
+        }
+      } catch {
+        // InSAR API unavailable — layer renders empty
+      }
+    }
+
+    void load()
+  }, [activeLayers.insar, eventId])
+
   // Fly to target when supplied from parent (ZoneSearch)
   useEffect(() => {
     if (!flyTo || !mapRef.current) return
@@ -324,6 +371,18 @@ export default function MapLibreMap({
               map={mapRef.current}
               passes={satellitePasses}
               visible={activeLayers.satellites ?? false}
+            />
+            <FIRMSLayer
+              map={mapRef.current}
+              fires={fires}
+              visible={activeLayers.firms ?? false}
+            />
+            <InSARLayer
+              map={mapRef.current}
+              browseUrl={insarData?.browseUrl ?? null}
+              bbox={insarData?.bbox ?? [-74, 0, -59, 13]}
+              visible={activeLayers.insar ?? false}
+              jobStatus={insarJobStatus}
             />
           </>
         )}
