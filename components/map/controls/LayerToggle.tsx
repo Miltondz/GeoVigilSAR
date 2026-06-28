@@ -46,9 +46,10 @@ const LAYER_GROUPS = [
   {
     label: 'CONTEXTO',
     layers: [
-      { id: 'buildings',   label: 'Edificios OpenStreetMap' },
-      { id: 'population',  label: 'Densidad poblacional' },
-      { id: 'geoNews',     label: 'Noticias geolocalizadas' },
+      { id: 'adminBoundaries', label: 'Límites estados/ciudades' },
+      { id: 'buildings',       label: 'Edificios OpenStreetMap' },
+      { id: 'population',      label: 'Densidad poblacional' },
+      { id: 'geoNews',         label: 'Noticias geolocalizadas' },
     ],
   },
   {

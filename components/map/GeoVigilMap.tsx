@@ -129,6 +129,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
         visible={viewMode === '3d'}
         satellite={!!activeLayers.satellite}
         activeLayers={activeLayers}
+        damagePoints={damagePoints}
       />
 
       {/* Vision mode overlay — covers full map canvas, below UI controls */}

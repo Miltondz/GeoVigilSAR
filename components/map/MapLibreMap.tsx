@@ -181,6 +181,30 @@ export default function MapLibreMap({
     }
   }, [activeLayers.satellite, mapLoaded])
 
+  // Admin boundaries + labels — ESRI Reference transparent overlay
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded) return
+
+    if (activeLayers.adminBoundaries ?? true) {
+      if (!map.getSource('esri-ref')) {
+        map.addSource('esri-ref', {
+          type: 'raster',
+          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
+          tileSize: 256,
+          attribution: '© Esri',
+          maxzoom: 19,
+        })
+        map.addLayer({ id: 'admin-boundaries', type: 'raster', source: 'esri-ref' })
+      }
+      map.setLayoutProperty('admin-boundaries', 'visibility', 'visible')
+    } else {
+      if (map.getLayer('admin-boundaries')) {
+        map.setLayoutProperty('admin-boundaries', 'visibility', 'none')
+      }
+    }
+  }, [activeLayers.adminBoundaries, mapLoaded])
+
   // Fetch vulnerability scores when the layer is toggled on
   useEffect(() => {
     if (!activeLayers.vulnerability) return

@@ -32,6 +32,7 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   shelters:        false,
   evacRoutes:      false,
   noAccess:        false,
+  adminBoundaries: true,
   buildings:       true,
   population:      false,
   geoNews:         false,

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { Viewer as CesiumViewer, Entity as CesiumEntity } from 'cesium'
+import type { DamagePoint } from '@/lib/events/ven-2406'
 
 // Boconó-Morón-El Pilar fault system coordinates [lng, lat, lng, lat, ...]
 // Duplicated from FaultLinesLayer to avoid cross-tree imports
@@ -51,6 +52,7 @@ interface Cesium3DGlobeProps {
   visible: boolean
   satellite?: boolean
   activeLayers?: Record<string, boolean>
+  damagePoints?: DamagePoint[]
 }
 
 export default function Cesium3DGlobe({
@@ -59,14 +61,16 @@ export default function Cesium3DGlobe({
   visible,
   satellite = false,
   activeLayers = {},
+  damagePoints = [],
 }: Cesium3DGlobeProps) {
   const containerRef      = useRef<HTMLDivElement>(null)
   const viewerRef         = useRef<CesiumViewer | null>(null)
-  const mainshockEntitiesRef = useRef<CesiumEntity[]>([]) // M≥6.5 mainshock markers
+  const mainshockEntitiesRef  = useRef<CesiumEntity[]>([]) // M≥6.5 mainshock markers
   const aftershockEntitiesRef = useRef<CesiumEntity[]>([]) // M<6.5 aftershock markers
-  const entitiesRef          = useRef<CesiumEntity[]>([])  // all earthquake entities (for cleanup)
-  const faultEntitiesRef     = useRef<CesiumEntity[]>([])  // fault polylines
-  const impactEntitiesRef    = useRef<CesiumEntity[]>([])  // cone + wave pulse
+  const entitiesRef           = useRef<CesiumEntity[]>([])  // all earthquake entities (for cleanup)
+  const faultEntitiesRef      = useRef<CesiumEntity[]>([])  // fault polylines
+  const impactEntitiesRef     = useRef<CesiumEntity[]>([])  // cone + wave pulse
+  const damageEntitiesRef     = useRef<CesiumEntity[]>([])  // damage assessment points
   const earthquakesRef    = useRef<EarthquakeMarker[]>([])
   const [cesiumReady, setCesiumReady] = useState(false)
   const [error, setError]             = useState<string | null>(null)
@@ -165,6 +169,7 @@ export default function Cesium3DGlobe({
       impactEntitiesRef.current = []
       mainshockEntitiesRef.current = []
       aftershockEntitiesRef.current = []
+      damageEntitiesRef.current = []
     }
     // epicenter is used only for the initial flyTo — intentionally excluded
     // from deps so Cesium re-initializes only once.
@@ -294,7 +299,7 @@ export default function Cesium3DGlobe({
     for (const ent of aftershockEntitiesRef.current) ent.show = show
   }, [activeLayers.aftershocks])
 
-  // ── Satellite imagery layer toggle ────────────────────────────────────────
+  // ── Satellite + admin boundaries imagery layers ───────────────────────────
   useEffect(() => {
     if (!cesiumReady || !viewerRef.current) return
     const viewer = viewerRef.current
@@ -304,7 +309,7 @@ export default function Cesium3DGlobe({
       const CesiumLib = await import('cesium')
       if (viewer.isDestroyed()) return
 
-      // Remove any existing satellite layer (index > 0 to keep dark basemap)
+      // Remove all layers above index 0 (keep dark CARTO basemap)
       while (viewer.imageryLayers.length > 1) {
         viewer.imageryLayers.remove(viewer.imageryLayers.get(viewer.imageryLayers.length - 1))
       }
@@ -318,10 +323,22 @@ export default function Cesium3DGlobe({
           })
         )
       }
+
+      // ESRI Reference — transparent overlay with state/city borders + labels
+      // Goes on top of both dark and satellite basemaps
+      if (activeLayers.adminBoundaries ?? true) {
+        viewer.imageryLayers.addImageryProvider(
+          new CesiumLib.UrlTemplateImageryProvider({
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+            credit: '© Esri',
+            maximumLevel: 19,
+          })
+        )
+      }
     }
 
     toggle()
-  }, [cesiumReady, satellite])
+  }, [cesiumReady, satellite, activeLayers.adminBoundaries])
 
   // ── Update earthquake markers when data changes ───────────────────────────
   useEffect(() => {
@@ -447,6 +464,54 @@ export default function Cesium3DGlobe({
 
     update()
   }, [earthquakes, cesiumReady, activeLayers.epicenters, activeLayers.aftershocks])
+
+  // ── Damage assessment points ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+
+    const render = async () => {
+      const CesiumLib = await import('cesium')
+      if (viewer.isDestroyed()) return
+
+      for (const ent of damageEntitiesRef.current) viewer.entities.remove(ent)
+      damageEntitiesRef.current = []
+
+      if (!(activeLayers.damagePoints ?? true)) return
+
+      for (const pt of damagePoints) {
+        const hex = pt.damageType === 'collapsed' ? C_RED : C_AMBER
+        const color = CesiumLib.Color.fromCssColorString(hex)
+        const size  = pt.damageType === 'collapsed' ? 12 : 9
+
+        const ent = viewer.entities.add({
+          show:     true,
+          position: CesiumLib.Cartesian3.fromDegrees(pt.lng, pt.lat),
+          point: {
+            pixelSize:    size,
+            color,
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 1,
+          },
+          label: {
+            text:         pt.address,
+            font:         '10px monospace',
+            fillColor:    color,
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 2,
+            style:        CesiumLib.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset:  new CesiumLib.Cartesian2(0, -18),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            distanceDisplayCondition: new CesiumLib.DistanceDisplayCondition(0, 400_000),
+          },
+        })
+        damageEntitiesRef.current.push(ent)
+      }
+    }
+
+    render()
+  }, [damagePoints, cesiumReady, activeLayers.damagePoints])
 
   // ── Resize when globe becomes visible ────────────────────────────────────
   useEffect(() => {
