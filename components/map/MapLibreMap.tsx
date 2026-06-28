@@ -17,7 +17,7 @@ import VulnerabilityHeatmap from './layers/VulnerabilityHeatmap'
 import AirTrafficLayer from './layers/AirTrafficLayer'
 import SatelliteTrackLayer from './layers/SatelliteTrackLayer'
 import PhotoComparator from '@/components/panels/PhotoComparator'
-import { MOCK_DAMAGE_POINTS } from '@/lib/mock-data'
+import type { DamagePoint } from '@/lib/events/ven-2406'
 import type { VulnerabilityScore } from '@/lib/vulnerability'
 import type { AircraftState } from '@/lib/opensky'
 import type { SatellitePass } from '@/lib/orbits'
@@ -60,6 +60,7 @@ interface MapLibreMapProps {
   timelinePhase?: 'pre' | 'main' | 'post'
   timelineMs?: number
   flyTo?: FlyToTarget | null
+  damagePoints?: DamagePoint[]
 }
 
 // Protomaps free tile style — no key required
@@ -79,14 +80,16 @@ export default function MapLibreMap({
   timelinePhase,
   timelineMs,
   flyTo,
+  damagePoints = [],
 }: MapLibreMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const osmLayerIdsRef = useRef<string[]>([])
   const [mapLoaded, setMapLoaded] = useState(false)
   const [viewport, setViewport] = useState({ lat: center[1], lng: center[0], zoom })
   const [targeting, setTargeting] = useState<{ x: number; y: number; nodeId: string; coords?: { lat: number; lng: number } } | null>(null)
   const [comparatorOpen, setComparatorOpen] = useState(false)
-  const [selectedNode, setSelectedNode] = useState<typeof MOCK_DAMAGE_POINTS[0] | undefined>()
+  const [selectedNode, setSelectedNode] = useState<DamagePoint | undefined>()
   const [vulnerabilityScores, setVulnerabilityScores] = useState<VulnerabilityScore[]>([])
   const [aircraft, setAircraft] = useState<AircraftState[]>([])
   const [satellitePasses, setSatellitePasses] = useState<SatellitePass[]>([])
@@ -115,8 +118,9 @@ export default function MapLibreMap({
     })
 
     map.on('load', () => {
+      // Capture OSM basemap layer IDs before custom layers are added
+      osmLayerIdsRef.current = map.getStyle().layers.map(l => l.id)
       setMapLoaded(true)
-      // Override map style to dark
       if (map.getLayer('background')) {
         map.setPaintProperty('background', 'background-color', '#00080E')
       }
@@ -146,6 +150,36 @@ export default function MapLibreMap({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Satellite basemap toggle — ESRI World Imagery (free, no key)
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded) return
+    if (activeLayers.satellite) {
+      if (!map.getSource('esri-sat')) {
+        map.addSource('esri-sat', {
+          type: 'raster',
+          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+          tileSize: 256,
+          attribution: '© Esri, DigitalGlobe, GeoEye, USDA FSA, USGS',
+          maxzoom: 19,
+        })
+        const firstOsm = osmLayerIdsRef.current[0]
+        map.addLayer({ id: 'sat-basemap', type: 'raster', source: 'esri-sat' }, firstOsm)
+      }
+      map.setLayoutProperty('sat-basemap', 'visibility', 'visible')
+      for (const id of osmLayerIdsRef.current) {
+        try { map.setLayoutProperty(id, 'visibility', 'none') } catch { /* skip */ }
+      }
+    } else {
+      if (map.getLayer('sat-basemap')) {
+        map.setLayoutProperty('sat-basemap', 'visibility', 'none')
+      }
+      for (const id of osmLayerIdsRef.current) {
+        try { map.setLayoutProperty(id, 'visibility', 'visible') } catch { /* skip */ }
+      }
+    }
+  }, [activeLayers.satellite, mapLoaded])
 
   // Fetch vulnerability scores when the layer is toggled on
   useEffect(() => {
@@ -301,7 +335,7 @@ export default function MapLibreMap({
     })
   }, [flyTo])
 
-  const handleDamagePointClick = useCallback((point: typeof MOCK_DAMAGE_POINTS[0]) => {
+  const handleDamagePointClick = useCallback((point: DamagePoint) => {
     setSelectedNode(point)
     setComparatorOpen(true)
   }, [])
@@ -381,7 +415,7 @@ export default function MapLibreMap({
             />
             <DamagePointsLayer
               map={mapRef.current}
-              points={MOCK_DAMAGE_POINTS}
+              points={damagePoints}
               visible={activeLayers.damagePoints ?? false}
             />
             <VulnerabilityHeatmap

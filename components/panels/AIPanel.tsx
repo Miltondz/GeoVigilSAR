@@ -1,8 +1,7 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import NewsStream from './NewsStream'
-import { MOCK_NEWS } from '@/lib/mock-data'
 
 interface Message {
   role: 'system' | 'user'
@@ -24,6 +23,14 @@ function buildWelcome(eventId: string) {
   return `Listo. Evento ${eventId} cargado.\nFuentes activas: USGS, GDELT, ReliefWeb, Copernicus EMS.`
 }
 
+interface NewsItem {
+  title: string
+  source: string
+  timeStr: string
+  url?: string
+  lang?: string
+}
+
 export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) {
   const welcomeContent = buildWelcome(eventId)
   const [messages, setMessages] = useState<Message[]>([{ role: 'system', content: welcomeContent }])
@@ -31,6 +38,23 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
   const [loading, setLoading] = useState(false)
   const [streamedText, setStreamedText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([])
+
+  useEffect(() => {
+    fetch(`/api/news?eventId=${eventId}&limit=10`)
+      .then(r => r.json())
+      .then((d: { items?: { title: string; source: string; publishedAt: number; url: string; language: string }[] }) => {
+        const now = Date.now()
+        setNewsItems((d.items ?? []).map(item => {
+          const diffMin = Math.round((now - item.publishedAt) / 60000)
+          const timeStr = diffMin < 60
+            ? `hace ${diffMin}m`
+            : diffMin < 1440 ? `hace ${Math.round(diffMin / 60)}h` : `hace ${Math.round(diffMin / 1440)}d`
+          return { title: item.title, source: item.source, timeStr, url: item.url, lang: item.language }
+        }))
+      })
+      .catch(() => {})
+  }, [eventId])
 
   const send = async (text: string) => {
     if (!text.trim() || loading) return
@@ -209,7 +233,7 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
 
       {/* News stream */}
       <div style={{ height: '35%', minHeight: 120, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--color-slate)' }}>
-        <NewsStream items={MOCK_NEWS} />
+        <NewsStream items={newsItems} />
       </div>
     </div>
   )

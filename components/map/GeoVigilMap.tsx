@@ -9,6 +9,7 @@ import VisionModeOverlay from './overlays/VisionModeOverlay'
 import VisionModeControl from './controls/VisionModeControl'
 import type { VisionMode } from './overlays/VisionModeOverlay'
 import type { EarthquakeMarker } from './Cesium3DGlobe'
+import type { DamagePoint } from '@/lib/events/ven-2406'
 
 // MapLibre requires client-only — no SSR
 const MapLibreMap = dynamic(() => import('./MapLibreMap'), {
@@ -46,6 +47,7 @@ interface GeoVigilMapProps {
   timelinePhase?: 'pre' | 'main' | 'post'
   timelineMs?: number
   flyTo?: FlyToTarget | null
+  damagePoints?: DamagePoint[]
 }
 
 function MapPlaceholder() {
@@ -66,16 +68,15 @@ function MapPlaceholder() {
   )
 }
 
-// Map EarthquakeMarker from Cesium3DGlobe to the local Earthquake shape
 function toMarker(eq: Earthquake): EarthquakeMarker {
-  return { id: eq.id, magnitude: eq.magnitude, lat: eq.lat, lng: eq.lng, depth: eq.depth }
+  return { id: eq.id, magnitude: eq.magnitude, lat: eq.lat, lng: eq.lng, depth: eq.depth, place: eq.place, time: eq.time }
 }
 
-export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, timelinePhase, timelineMs, flyTo }: GeoVigilMapProps) {
+export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, timelinePhase, timelineMs, flyTo, damagePoints = [] }: GeoVigilMapProps) {
   const [earthquakes, setEarthquakes] = useState<Earthquake[]>([])
   const [lastFetch, setLastFetch] = useState(0)
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d')
-  const [visionMode, setVisionMode] = useState<VisionMode>('NORMAL')
+  const [visionMode, setVisionMode] = useState<VisionMode>('CRT')
 
   // Fetch real USGS data
   useEffect(() => {
@@ -117,6 +118,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
           timelinePhase={timelinePhase}
           timelineMs={timelineMs}
           flyTo={flyTo}
+          damagePoints={damagePoints}
         />
       </div>
 

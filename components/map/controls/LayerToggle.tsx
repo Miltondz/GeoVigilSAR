@@ -24,6 +24,7 @@ const LAYER_GROUPS = [
   {
     label: 'CAPAS SATELITALES',
     layers: [
+      { id: 'satellite',   label: 'Basemap Satelital — ESRI' },
       { id: 'sarChange',   label: 'SAR Change Detection — S1' },
       { id: 'opticalPre',  label: 'Óptico antes — Sentinel-2' },
       { id: 'opticalPost', label: 'Óptico después — Sentinel-2' },

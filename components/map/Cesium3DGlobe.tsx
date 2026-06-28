@@ -41,6 +41,8 @@ export interface EarthquakeMarker {
   lat: number
   lng: number
   depth: number
+  place?: string
+  time?: number
 }
 
 interface Cesium3DGlobeProps {
@@ -58,8 +60,10 @@ export default function Cesium3DGlobe({
   const viewerRef         = useRef<CesiumViewer | null>(null)
   const entitiesRef       = useRef<CesiumEntity[]>([])
   const staticEntitiesRef = useRef<CesiumEntity[]>([])
+  const earthquakesRef    = useRef<EarthquakeMarker[]>([])
   const [cesiumReady, setCesiumReady] = useState(false)
   const [error, setError]             = useState<string | null>(null)
+  const [selectedEq, setSelectedEq]   = useState<EarthquakeMarker | null>(null)
 
   // ── Init Cesium once on mount ─────────────────────────────────────────────
   useEffect(() => {
@@ -82,11 +86,11 @@ export default function Cesium3DGlobe({
           process.env.NEXT_PUBLIC_CESIUM_TOKEN ?? ''
 
         const viewer = new CesiumLib.Viewer(containerRef.current, {
-          // UrlTemplateImageryProvider replaces deprecated OpenStreetMapImageryProvider (Cesium 1.107+)
+          // CARTO Dark Matter — dark basemap matching HUD theme, no API key needed
           baseLayer: new CesiumLib.ImageryLayer(
             new CesiumLib.UrlTemplateImageryProvider({
-              url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              credit: '© OpenStreetMap contributors',
+              url: 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              credit: '© OpenStreetMap contributors © CARTO',
               maximumLevel: 19,
             })
           ),
@@ -119,6 +123,19 @@ export default function Cesium3DGlobe({
           ),
           duration: 0,
         })
+
+        // Click handler — show HUD popup for selected earthquake marker
+        const handler = new CesiumLib.ScreenSpaceEventHandler(viewer.scene.canvas)
+        handler.setInputAction((evt: { position: { x: number; y: number } }) => {
+          const pos = new CesiumLib.Cartesian2(evt.position.x, evt.position.y)
+          const picked = viewer.scene.pick(pos)
+          if (CesiumLib.defined(picked) && picked.id) {
+            const found = earthquakesRef.current.find(e => e.id === (picked.id as { id?: string }).id)
+            setSelectedEq(found ?? null)
+          } else {
+            setSelectedEq(null)
+          }
+        }, CesiumLib.ScreenSpaceEventType.LEFT_CLICK)
 
         viewerRef.current = viewer
         if (!cancelled) setCesiumReady(true)
@@ -203,8 +220,8 @@ export default function Cesium3DGlobe({
       // semiMajorAxis < semiMinorAxis error at period-reset boundaries.
       let _waveR = 1000
       let _waveT = -1
-      const waveRadius = new CesiumLib.CallbackProperty((time: { secondsOfDay: number }) => {
-        if (time.secondsOfDay !== _waveT) {
+      const waveRadius = new CesiumLib.CallbackProperty((time?: { secondsOfDay: number }) => {
+        if (time && time.secondsOfDay !== _waveT) {
           const elapsed = (Date.now() - waveStart) / 1000
           _waveR = Math.max(1000, ((elapsed % WAVE_PERIOD_S) / WAVE_PERIOD_S) * WAVE_MAX_RADIUS)
           _waveT = time.secondsOfDay
@@ -241,6 +258,9 @@ export default function Cesium3DGlobe({
     // epicenter values are constant — excluded from deps intentionally
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cesiumReady])
+
+  // Keep earthquakesRef in sync for click handler lookups
+  useEffect(() => { earthquakesRef.current = earthquakes }, [earthquakes])
 
   // ── Update earthquake markers when data changes ───────────────────────────
   useEffect(() => {
@@ -344,6 +364,39 @@ export default function Cesium3DGlobe({
 
       {/* Globe canvas target */}
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
+      {/* HUD popup — selected earthquake info */}
+      {selectedEq && (
+        <div
+          onClick={() => setSelectedEq(null)}
+          style={{
+            position: 'absolute',
+            bottom: 48,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: 'rgba(0,10,15,0.92)',
+            border: `1px solid ${selectedEq.magnitude >= 6.5 ? C_RED : selectedEq.magnitude >= 4 ? C_AMBER : C_GREEN}`,
+            padding: '0.625rem 1rem',
+            fontFamily: 'var(--font-hud)',
+            zIndex: 30,
+            pointerEvents: 'auto',
+            cursor: 'pointer',
+            minWidth: 220,
+          }}
+        >
+          <div style={{ fontSize: '0.625rem', color: selectedEq.magnitude >= 6.5 ? C_RED : selectedEq.magnitude >= 4 ? C_AMBER : C_GREEN, letterSpacing: '0.15em', marginBottom: 4 }}>
+            M{selectedEq.magnitude.toFixed(1)} · SISMO DETECTADO
+          </div>
+          {selectedEq.place && (
+            <div style={{ fontSize: '0.5rem', color: '#E0E8F0', marginBottom: 2 }}>{selectedEq.place}</div>
+          )}
+          <div style={{ fontSize: '0.4375rem', color: '#607080' }}>
+            Prof: {selectedEq.depth} km
+            {selectedEq.time && ` · ${new Date(selectedEq.time).toISOString().slice(0, 16).replace('T', ' ')} UTC`}
+          </div>
+          <div style={{ fontSize: '0.375rem', color: '#607080', marginTop: 4, letterSpacing: '0.1em' }}>CLICK PARA CERRAR</div>
+        </div>
+      )}
 
       {/* Loading state */}
       {!cesiumReady && !error && (

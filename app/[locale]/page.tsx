@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import DashboardHeader from '@/components/DashboardHeader'
 import StatsPanel from '@/components/panels/StatsPanel'
 import AIPanel from '@/components/panels/AIPanel'
@@ -12,12 +12,6 @@ import InSARPanel from '@/components/panels/InSARPanel'
 import DataSourcesPanel from '@/components/panels/DataSourcesPanel'
 import SystemHealthModal from '@/components/ui/SystemHealthModal'
 import EMSR884Panel from '@/components/panels/EMSR884Panel'
-import {
-  MOCK_STATS,
-  MOCK_MAIN_SHOCKS,
-  MOCK_DATA_STREAM,
-  MOCK_TIMELINE_EVENTS,
-} from '@/lib/mock-data'
 import { getEvent } from '@/lib/events/index'
 
 const DEFAULT_LAYERS: Record<string, boolean> = {
@@ -32,7 +26,8 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   sarLband:        false,
   ariaDPM:         false,
   firms:           false,
-  damagePoints:    false,
+  satellite:       false,
+  damagePoints:    true,
   hospitals:       false,
   shelters:        false,
   evacRoutes:      false,
@@ -64,6 +59,19 @@ export default function DashboardPage({ params }: { params: { locale: string } }
     id: string; magnitude: number; depth: number; lat: number; lng: number
     time: number; place: string; classification: string
   }[]>([])
+  const [humanStats, setHumanStats] = useState<{
+    fatalities: number; injured: number
+  } | null>(null)
+
+  useEffect(() => {
+    setHumanStats(null)
+    fetch(`/api/humanitarian?eventId=${activeEventId}`)
+      .then(r => r.json())
+      .then((d: { stats?: { fatalities: number; injured: number } }) => {
+        if (d.stats) setHumanStats(d.stats)
+      })
+      .catch(() => {})
+  }, [activeEventId])
 
   const handleLayerChange = useCallback((id: string, visible: boolean) => {
     setActiveLayers(prev => ({ ...prev, [id]: visible }))
@@ -96,22 +104,45 @@ export default function DashboardPage({ params }: { params: { locale: string } }
     return 'post'
   }, [timelineValue])
 
+  const timelineEvents = event.timelineEvents ?? []
+
   const timelineMs = useMemo((): number => {
-    const events = MOCK_TIMELINE_EVENTS
-    if (events.length < 2) return event.mainShockTime
-    const startMs = new Date(events[0].date + 'T00:00:00Z').getTime()
-    const endMs   = new Date(events[events.length - 1].date + 'T00:00:00Z').getTime()
+    if (timelineEvents.length < 2) return event.mainShockTime
+    const startMs = new Date(timelineEvents[0].date + 'T00:00:00Z').getTime()
+    const endMs   = new Date(timelineEvents[timelineEvents.length - 1].date + 'T00:00:00Z').getTime()
     return startMs + (timelineValue / 100) * (endMs - startMs)
-  }, [timelineValue, event.mainShockTime])
+  }, [timelineValue, event.mainShockTime, timelineEvents])
 
-  // Mock stats — replaced with live data once Convex or polling is wired
-  const stats = activeEventId === 'VEN-2406'
-    ? MOCK_STATS
-    : { fatalities: 50766, injured: 107204, aftershockCount: 1500, lastAftershock: { magnitude: 3.2, place: 'Hatay', hoursAgo: 18 }, rescuedAlive: 8000, displaced: 3000000 }
+  const sortedEqs = useMemo(
+    () => [...liveEarthquakes].sort((a, b) => b.time - a.time),
+    [liveEarthquakes]
+  )
 
-  const mainShocks = activeEventId === 'VEN-2406'
-    ? MOCK_MAIN_SHOCKS
-    : [{ magnitude: 7.8, timeStr: '01:17 UTC 06.02.23', depth: 18 }, { magnitude: 7.7, timeStr: '10:24 UTC 06.02.23', depth: 10 }]
+  const stats = useMemo(() => {
+    const lastEq = sortedEqs[0]
+    return {
+      fatalities:     humanStats?.fatalities ?? 0,
+      injured:        humanStats?.injured ?? 0,
+      aftershockCount: liveEarthquakes.length,
+      lastAftershock: lastEq
+        ? { magnitude: lastEq.magnitude, place: lastEq.place, hoursAgo: Math.round((Date.now() - lastEq.time) / 3_600_000) }
+        : { magnitude: 0, place: '—', hoursAgo: 0 },
+    }
+  }, [humanStats, liveEarthquakes, sortedEqs])
+
+  const mainShocks = useMemo(
+    () => event.mainShocks ?? [{ magnitude: event.mainShockMagnitude, timeStr: new Date(event.mainShockTime).toISOString().slice(11, 16) + ' UTC', depth: 10 }],
+    [event]
+  )
+
+  const dataStream = useMemo(
+    () => sortedEqs.slice(0, 10).map(eq => ({
+      time: new Date(eq.time).toISOString().slice(11, 16) + ' UTC',
+      text: `M${eq.magnitude.toFixed(1)} detectado · ${eq.place}`,
+      type: 'seismic' as const,
+    })),
+    [sortedEqs]
+  )
 
   return (
     <div style={{
@@ -141,7 +172,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
           mainShocks={mainShocks}
           location={`${event.epicenter.lat.toFixed(2)}°N, ${Math.abs(event.epicenter.lng).toFixed(2)}°W`}
           faultSystem={event.faultSystem}
-          dataStream={MOCK_DATA_STREAM}
+          dataStream={dataStream}
           onHospitalDetailOpen={() => setHospitalPanelOpen(true)}
         />
 
@@ -153,6 +184,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
             timelinePhase={timelinePhase}
             timelineMs={timelineMs}
             flyTo={mapTarget}
+            damagePoints={event.damageAssessment ?? []}
           />
         </div>
 
@@ -166,7 +198,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         flexShrink: 0,
       }}>
         <TimelineSlider
-          events={MOCK_TIMELINE_EVENTS}
+          events={timelineEvents}
           value={timelineValue}
           onChange={setTimelineValue}
         />
