@@ -342,36 +342,103 @@ export default function Cesium3DGlobe({
       const showMain  = !!(activeLayers.epicenters  ?? true)
       const showAfter = !!(activeLayers.aftershocks ?? true)
 
+      // Ring appearance scaled by magnitude
+      // maxRadius = M² * 2500 m  →  M7.5→141km  M5→63km  M3→23km
+      // periodMs  = 2500 + M*400  → bigger = slower, more imposing
+      // ringCount: M≥6.5=3, M5-6.4=2, M4-4.9=1, M<4=0 (only point)
+      function ringParams(mag: number) {
+        return {
+          ringCount:  mag >= 6.5 ? 3 : mag >= 5 ? 2 : mag >= 4 ? 1 : 0,
+          maxRadius:  mag * mag * 2500,
+          periodMs:   2500 + mag * 400,
+          outlineW:   mag >= 6.5 ? 3 : mag >= 5 ? 2 : 1.5,
+        }
+      }
+
+      const globalStart = Date.now()
+
       for (const eq of earthquakes) {
         const isMain = eq.magnitude >= 6.5
         const hex =
           eq.magnitude >= 6.5 ? C_RED :
           eq.magnitude >= 4   ? C_AMBER :
                                 C_GREEN
-        const color = CesiumLib.Color.fromCssColorString(hex)
+        const color  = CesiumLib.Color.fromCssColorString(hex)
+        const show   = isMain ? showMain : showAfter
+        const pos    = CesiumLib.Cartesian3.fromDegrees(eq.lng, eq.lat)
+        const { ringCount, maxRadius, periodMs, outlineW } = ringParams(eq.magnitude)
 
+        // ── Expanding ring waves ──────────────────────────────────────────
+        for (let ri = 0; ri < ringCount; ri++) {
+          const phaseMs = (ri / ringCount) * periodMs
+          // Per-ring cached radius — shared by both semiMajorAxis and semiMinorAxis
+          let _r = 1_000, _rt = -1
+          let _c = CesiumLib.Color.fromCssColorString(hex).withAlpha(0.5), _ct = -1
+
+          const ringRadius = new CesiumLib.CallbackProperty((time?: { secondsOfDay: number }) => {
+            if (time && time.secondsOfDay !== _rt) {
+              const t = ((Date.now() - globalStart + phaseMs) % periodMs) / periodMs
+              _r  = Math.max(1_000, t * maxRadius)
+              _rt = time.secondsOfDay
+            }
+            return _r
+          }, false)
+
+          const ringColor = new CesiumLib.CallbackProperty((time?: { secondsOfDay: number }) => {
+            if (time && time.secondsOfDay !== _ct) {
+              const t = ((Date.now() - globalStart + phaseMs) % periodMs) / periodMs
+              _c  = CesiumLib.Color.fromCssColorString(hex).withAlpha(Math.max(0, 0.65 * (1 - t)))
+              _ct = time.secondsOfDay
+            }
+            return _c
+          }, false)
+
+          const ringEnt = viewer.entities.add({
+            show,
+            position: pos,
+            ellipse: {
+              semiMajorAxis: ringRadius,
+              semiMinorAxis: ringRadius,
+              material:      CesiumLib.Color.TRANSPARENT,
+              outline:       true,
+              outlineColor:  ringColor,
+              outlineWidth:  outlineW,
+              height:        0,
+            },
+          })
+          entitiesRef.current.push(ringEnt)
+          if (isMain) mainshockEntitiesRef.current.push(ringEnt)
+          else aftershockEntitiesRef.current.push(ringEnt)
+        }
+
+        // ── Central point + label (on top of rings) ──────────────────────
+        const pointSize = eq.magnitude >= 6.5 ? eq.magnitude * 5 : Math.max(5, eq.magnitude * 3)
         const entity = viewer.entities.add({
           id:   eq.id,
-          show: isMain ? showMain : showAfter,
-          position: CesiumLib.Cartesian3.fromDegrees(eq.lng, eq.lat),
+          show,
+          position: pos,
           point: {
-            pixelSize:    Math.max(8, eq.magnitude * 4),
+            pixelSize:    pointSize,
             color,
             outlineColor: CesiumLib.Color.BLACK,
             outlineWidth: 1,
           },
           label: {
             text:         `M${eq.magnitude.toFixed(1)}`,
-            font:         '11px monospace',
+            font:         `${eq.magnitude >= 5 ? 13 : 10}px monospace`,
             fillColor:    color,
             outlineColor: CesiumLib.Color.BLACK,
             outlineWidth: 2,
             style:        CesiumLib.LabelStyle.FILL_AND_OUTLINE,
-            pixelOffset:  new CesiumLib.Cartesian2(0, -20),
+            pixelOffset:  new CesiumLib.Cartesian2(0, -22),
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            // Only show labels for M≥4 at zoom; smaller ones appear on closer view
+            distanceDisplayCondition: new CesiumLib.DistanceDisplayCondition(
+              0,
+              eq.magnitude >= 5 ? 2_000_000 : eq.magnitude >= 4 ? 800_000 : 300_000
+            ),
           },
         })
-
         entitiesRef.current.push(entity)
         if (isMain) mainshockEntitiesRef.current.push(entity)
         else aftershockEntitiesRef.current.push(entity)
