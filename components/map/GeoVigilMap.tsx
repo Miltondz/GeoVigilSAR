@@ -115,35 +115,41 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
 
-      {/* 2D MapLibre — hidden (not unmounted) when in 3D mode */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        display: viewMode === '2d' ? 'block' : 'none',
-      }}>
-        <MapLibreMap
+      {/* Canvas wrapper — filter applied here so WebGL (Cesium) + DOM (MapLibre) both affected */}
+      <div
+        className={visionMode !== 'NORMAL' ? `vision-canvas-${visionMode.toLowerCase()}` : undefined}
+        style={{ position: 'absolute', inset: 0 }}
+      >
+        {/* 2D MapLibre — hidden (not unmounted) when in 3D mode */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          display: viewMode === '2d' ? 'block' : 'none',
+        }}>
+          <MapLibreMap
+            activeLayers={activeLayers}
+            eventId={eventId}
+            earthquakes={earthquakes}
+            timelinePhase={timelinePhase}
+            timelineMs={timelineMs}
+            flyTo={flyTo}
+            damagePoints={damagePoints}
+            onSelect={handleSelect}
+          />
+        </div>
+
+        {/* 3D Cesium Globe — hidden (not unmounted) when in 2D mode */}
+        <Cesium3DGlobe
+          epicenter={epicenter}
+          earthquakes={earthquakes.map(toMarker)}
+          visible={viewMode === '3d'}
+          satellite={!!activeLayers.satellite}
           activeLayers={activeLayers}
-          eventId={eventId}
-          earthquakes={earthquakes}
-          timelinePhase={timelinePhase}
-          timelineMs={timelineMs}
-          flyTo={flyTo}
           damagePoints={damagePoints}
           onSelect={handleSelect}
+          eventId={eventId}
         />
       </div>
-
-      {/* 3D Cesium Globe — hidden (not unmounted) when in 2D mode */}
-      <Cesium3DGlobe
-        epicenter={epicenter}
-        earthquakes={earthquakes.map(toMarker)}
-        visible={viewMode === '3d'}
-        satellite={!!activeLayers.satellite}
-        activeLayers={activeLayers}
-        damagePoints={damagePoints}
-        onSelect={handleSelect}
-        eventId={eventId}
-      />
 
       {/* Detail panel — slide-in over map area */}
       <MapDetailPanel

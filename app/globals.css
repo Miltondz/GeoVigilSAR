@@ -114,11 +114,22 @@ html, body {
   /* NORMAL: transparent, no effect */
 }
 
-/* FLIR — Forward Looking Infrared */
-.vision-flir {
-  backdrop-filter: sepia(1) hue-rotate(180deg) saturate(3) contrast(1.4) brightness(0.9);
-  -webkit-backdrop-filter: sepia(1) hue-rotate(180deg) saturate(3) contrast(1.4) brightness(0.9);
+/* Vision mode — filter on canvas wrapper (works on WebGL + DOM) */
+.vision-canvas-flir {
+  filter: sepia(1) hue-rotate(180deg) saturate(3) contrast(1.4) brightness(0.9);
 }
+.vision-canvas-nvg {
+  filter: grayscale(1) brightness(1.5) contrast(1.2);
+}
+.vision-canvas-crt {
+  filter: brightness(0.95) contrast(1.1) hue-rotate(5deg);
+  animation: crt-flicker 100ms ease-in-out infinite;
+}
+
+/* Vision mode overlay — pseudo-element decorations only (no backdrop-filter) */
+.vision-mode-overlay { /* NORMAL: no-op */ }
+
+/* FLIR — Forward Looking Infrared */
 .vision-flir::after {
   content: '';
   position: absolute;
@@ -130,15 +141,13 @@ html, body {
 
 /* NVG — Night Vision Goggles */
 .vision-nvg {
-  backdrop-filter: grayscale(1) brightness(1.5) contrast(1.2);
-  -webkit-backdrop-filter: grayscale(1) brightness(1.5) contrast(1.2);
   background: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.7) 100%);
 }
 .vision-nvg::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(0, 255, 100, 0.08);
+  background: rgba(0, 255, 100, 0.12);
   mix-blend-mode: color;
   pointer-events: none;
 }
@@ -155,11 +164,6 @@ html, body {
 @keyframes crt-flicker {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.98; }
-}
-.vision-crt {
-  animation: crt-flicker 100ms ease-in-out infinite;
-  backdrop-filter: brightness(0.95) contrast(1.1) hue-rotate(5deg);
-  -webkit-backdrop-filter: brightness(0.95) contrast(1.1) hue-rotate(5deg);
 }
 .vision-crt::before {
   content: '';
