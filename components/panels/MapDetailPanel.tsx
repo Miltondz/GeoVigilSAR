@@ -203,15 +203,20 @@ export default function MapDetailPanel({ object, onClose, eventId }: MapDetailPa
 
   const isEq  = object.type === 'earthquake'
   const isDmg = object.type === 'damage'
+  const isSat = object.type === 'satellite'
 
   const keyword   = isEq ? placeKeyword(object.place) : isDmg ? object.address.split('—')[0].trim() : ''
   const typeColor = isEq
     ? (object.magnitude >= 6.5 ? 'var(--color-red)' : 'var(--color-amber)')
-    : object.damageType === 'collapsed' ? 'var(--color-red)' : 'var(--color-amber)'
+    : isDmg
+    ? (object.damageType === 'collapsed' ? 'var(--color-red)' : 'var(--color-amber)')
+    : 'var(--color-cyan)'
   const typeBadge = isEq
     ? `M ${object.magnitude.toFixed(1)} SISMO`
-    : object.damageType === 'collapsed' ? 'COLAPSO ESTRUCTURAL' : object.damageType === 'damaged' ? 'DAÑO ESTRUCTURAL' : 'ZONA AFECTADA'
-  const title     = isEq ? object.place : isDmg ? object.address : ''
+    : isDmg
+    ? (object.damageType === 'collapsed' ? 'COLAPSO ESTRUCTURAL' : object.damageType === 'damaged' ? 'DAÑO ESTRUCTURAL' : 'ZONA AFECTADA')
+    : isSat ? `${object.orbitClass} · NORAD ${object.noradId}` : ''
+  const title     = isEq ? object.place : isDmg ? object.address : isSat ? object.name : ''
 
   return (
     /* backdrop */
@@ -340,6 +345,66 @@ export default function MapDetailPanel({ object, onClose, eventId }: MapDetailPa
               <ImagesSection lat={object.lat} lng={object.lng} />
             </>
           )}
+
+          {/* ── satellite metadata ── */}
+          {isSat && (() => {
+            const sat = object  // type is 'satellite'
+            const win = sat.nextCaptureWindow
+            const msUntil = win ? win.startMs - Date.now() : null
+            const hoursUntil = msUntil != null ? Math.max(0, msUntil / 3_600_000) : null
+            const durationMin = win ? Math.round((win.endMs - win.startMs) / 60_000) : null
+            return (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+                  <MetaCell label="ALTITUD"      value={`${Math.round(sat.altitudeKm)} km`}     accent="var(--color-cyan)" />
+                  <MetaCell label="ÓRBITA"        value={sat.orbitClass}                         accent="var(--color-cyan)" />
+                  <MetaCell label="LATITUD"       value={`${sat.lat.toFixed(3)}°`} />
+                  <MetaCell label="LONGITUD"      value={`${sat.lng.toFixed(3)}°`} />
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--color-slate)', paddingTop: '0.625rem' }}>
+                  <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.4375rem', color: 'var(--color-muted)', letterSpacing: '0.15em', marginBottom: '0.5rem' }}>
+                    VENTANA DE CAPTURA SAR
+                  </div>
+                  {win && hoursUntil != null ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                      <MetaCell
+                        label="PRÓXIMO PASO"
+                        value={hoursUntil < 1 ? `${Math.round(hoursUntil * 60)} min` : `${hoursUntil.toFixed(1)} h`}
+                        accent={hoursUntil < 2 ? 'var(--color-green)' : 'var(--color-cyan)'}
+                      />
+                      <MetaCell label="DURACIÓN"     value={`${durationMin} min`} />
+                      <MetaCell label="ELEV. MÁX."   value={`${win.maxElevationDeg.toFixed(1)}°`} />
+                      <MetaCell label="HORA INICIO"  value={new Date(win.startMs).toISOString().slice(11, 16) + ' UTC'} />
+                    </div>
+                  ) : (
+                    <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)' }}>
+                      Sin paso en próximas 24h
+                    </div>
+                  )}
+                </div>
+
+                <a
+                  href={`https://www.n2yo.com/satellite/?s=${sat.noradId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'block',
+                    fontFamily: 'var(--font-hud)',
+                    fontSize: '0.5rem',
+                    color: 'var(--color-cyan)',
+                    border: '1px solid var(--color-slate)',
+                    padding: '0.25rem 0.5rem',
+                    textDecoration: 'none',
+                    letterSpacing: '0.08em',
+                    textAlign: 'center',
+                  }}
+                >
+                  ↗ VER EN N2YO TRACKING
+                </a>
+              </>
+            )
+          })()}
 
           {/* ── USGS external link for earthquakes ── */}
           {isEq && (

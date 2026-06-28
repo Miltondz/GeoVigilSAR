@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { Viewer as CesiumViewer, Entity as CesiumEntity } from 'cesium'
+import type { Viewer as CesiumViewer, Entity as CesiumEntity, Cartesian3 as CesiumCartesian3 } from 'cesium'
 import type { DamagePoint } from '@/lib/events/ven-2406'
 import type { SelectedMapObject } from '@/lib/types/map-selection'
+import type { SatellitePass } from '@/lib/orbits'
 
 // Boconó-Morón-El Pilar fault system coordinates [lng, lat, lng, lat, ...]
 // Duplicated from FaultLinesLayer to avoid cross-tree imports
@@ -55,6 +56,7 @@ interface Cesium3DGlobeProps {
   activeLayers?: Record<string, boolean>
   damagePoints?: DamagePoint[]
   onSelect?: (obj: SelectedMapObject | null) => void
+  eventId?: string
 }
 
 export default function Cesium3DGlobe({
@@ -65,6 +67,7 @@ export default function Cesium3DGlobe({
   activeLayers = {},
   damagePoints = [],
   onSelect,
+  eventId = 'VEN-2406',
 }: Cesium3DGlobeProps) {
   const containerRef      = useRef<HTMLDivElement>(null)
   const viewerRef         = useRef<CesiumViewer | null>(null)
@@ -74,6 +77,8 @@ export default function Cesium3DGlobe({
   const faultEntitiesRef      = useRef<CesiumEntity[]>([])  // fault polylines
   const impactEntitiesRef     = useRef<CesiumEntity[]>([])  // cone + wave pulse
   const damageEntitiesRef     = useRef<CesiumEntity[]>([])  // damage assessment points
+  const satelliteEntitiesRef  = useRef<CesiumEntity[]>([])  // satellite bodies + tracks
+  const satellitePassesRef    = useRef<SatellitePass[]>([]) // for click handler lookup
   const earthquakesRef  = useRef<EarthquakeMarker[]>([])
   const damagePointsRef = useRef<DamagePoint[]>([])
   const onSelectRef     = useRef(onSelect)
@@ -179,6 +184,25 @@ export default function Cesium3DGlobe({
                 return
               }
             }
+
+            // Check satellite entities (id = `satellite-{noradId}`)
+            if (entityId.startsWith('satellite-')) {
+              const noradId = parseInt(entityId.slice(10), 10)
+              const sat = satellitePassesRef.current.find(s => s.noradId === noradId)
+              if (sat?.currentPosition) {
+                onSelectRef.current?.({
+                  type:               'satellite',
+                  noradId:            sat.noradId,
+                  name:               sat.name,
+                  lat:                sat.currentPosition.lat,
+                  lng:                sat.currentPosition.lng,
+                  altitudeKm:         sat.currentPosition.altitudeKm,
+                  orbitClass:         sat.orbitClass,
+                  nextCaptureWindow:  sat.nextCaptureWindow,
+                })
+                return
+              }
+            }
           }
           onSelectRef.current?.(null)
         }, CesiumLib.ScreenSpaceEventType.LEFT_CLICK)
@@ -209,6 +233,7 @@ export default function Cesium3DGlobe({
       mainshockEntitiesRef.current = []
       aftershockEntitiesRef.current = []
       damageEntitiesRef.current = []
+      satelliteEntitiesRef.current = []
     }
     // epicenter is used only for the initial flyTo — intentionally excluded
     // from deps so Cesium re-initializes only once.
@@ -553,6 +578,175 @@ export default function Cesium3DGlobe({
 
     render()
   }, [damagePoints, cesiumReady, activeLayers.damagePoints])
+
+  // ── Satellites in orbit — fetch TLE data + render 3D ─────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+
+    const render = async () => {
+      // Parallel import: cesium + satellite.js (both cached after first load)
+      const [CesiumLib, satjs] = await Promise.all([
+        import('cesium'),
+        import('satellite.js'),
+      ])
+      if (viewer.isDestroyed()) return
+
+      // Remove previous satellite entities
+      for (const ent of satelliteEntitiesRef.current) viewer.entities.remove(ent)
+      satelliteEntitiesRef.current = []
+
+      if (!(activeLayers.satellites ?? false)) return
+
+      // Fetch TLE + pass data
+      let passes: SatellitePass[] = []
+      try {
+        const res = await fetch(`/api/satellites?eventId=${eventId}`)
+        if (res.ok) {
+          const d = await res.json() as { satellites?: SatellitePass[] }
+          passes = d.satellites ?? []
+        }
+      } catch { /* Celestrak unavailable */ }
+
+      satellitePassesRef.current = passes
+
+      const C_SAT = '#00B4FF' // --color-cyan
+
+      for (const sat of passes) {
+        if (!sat.currentPosition) continue
+        const { altitudeKm } = sat.currentPosition
+        const altM = altitudeKm * 1000
+
+        // ── Live position via SGP4 (updates every 5s via closure cache) ──
+        const satrec = satjs.twoline2satrec(sat.tleLine1, sat.tleLine2)
+        let _cachedPos = CesiumLib.Cartesian3.fromDegrees(
+          sat.currentPosition.lng, sat.currentPosition.lat, altM
+        )
+        let _lastPropMs = 0
+
+        const livePosition = new CesiumLib.CallbackPositionProperty(() => {
+          const nowMs = Date.now()
+          if (nowMs - _lastPropMs > 5_000) {
+            _lastPropMs = nowMs
+            const posVel = satjs.propagate(satrec, new Date(nowMs))
+            const pos = posVel?.position
+            if (pos && typeof pos !== 'boolean') {
+              const gmst = satjs.gstime(new Date(nowMs))
+              const geo  = satjs.eciToGeodetic(pos as { x: number; y: number; z: number }, gmst)
+              _cachedPos = CesiumLib.Cartesian3.fromDegrees(
+                satjs.radiansToDegrees(geo.longitude),
+                satjs.radiansToDegrees(geo.latitude),
+                geo.height * 1_000
+              )
+            }
+          }
+          return _cachedPos
+        }, false)
+
+        // ── Satellite body (point at real altitude) ────────────────────────
+        const satBody = viewer.entities.add({
+          id:       `satellite-${sat.noradId}`,
+          position: livePosition,
+          point: {
+            pixelSize:                10,
+            color:                    CesiumLib.Color.fromCssColorString(C_SAT),
+            outlineColor:             CesiumLib.Color.WHITE,
+            outlineWidth:             1.5,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          label: {
+            text:                     sat.name,
+            font:                     '11px monospace',
+            fillColor:                CesiumLib.Color.fromCssColorString(C_SAT),
+            outlineColor:             CesiumLib.Color.BLACK,
+            outlineWidth:             2,
+            style:                    CesiumLib.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset:              new CesiumLib.Cartesian2(14, 0),
+            horizontalOrigin:         CesiumLib.HorizontalOrigin.LEFT,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+        })
+        satelliteEntitiesRef.current.push(satBody)
+
+        // ── Nadir line — dashed vertical from satellite to ground ──────────
+        const nadirGround = CesiumLib.Cartesian3.fromDegrees(
+          sat.currentPosition.lng, sat.currentPosition.lat, 0
+        )
+        const nadirTop = CesiumLib.Cartesian3.fromDegrees(
+          sat.currentPosition.lng, sat.currentPosition.lat, altM
+        )
+        const nadir = viewer.entities.add({
+          polyline: {
+            positions: [nadirTop, nadirGround],
+            width: 0.8,
+            material: new CesiumLib.PolylineDashMaterialProperty({
+              color: CesiumLib.Color.fromCssColorString(C_SAT).withAlpha(0.3),
+              dashLength: 20,
+            }),
+          },
+        })
+        satelliteEntitiesRef.current.push(nadir)
+
+        // ── Orbital track at actual altitude (next ~100 min) ───────────────
+        const trackPts = sat.groundTrack.slice(0, 100).map(pt =>
+          CesiumLib.Cartesian3.fromDegrees(pt.lng, pt.lat, altM)
+        )
+
+        if (trackPts.length > 1) {
+          // Split at antimeridian to avoid wrap-around artefacts
+          const segments: CesiumCartesian3[][] = []
+          let seg: CesiumCartesian3[] = [trackPts[0]]
+          for (let i = 1; i < trackPts.length; i++) {
+            const prev = sat.groundTrack[i - 1]
+            const curr = sat.groundTrack[i]
+            if (Math.abs(curr.lng - prev.lng) > 180) {
+              if (seg.length > 1) segments.push(seg)
+              seg = []
+            }
+            seg.push(trackPts[i])
+          }
+          if (seg.length > 1) segments.push(seg)
+
+          for (const s of segments) {
+            const track = viewer.entities.add({
+              polyline: {
+                positions:  s,
+                width:      1.5,
+                material:   CesiumLib.Color.fromCssColorString(C_SAT).withAlpha(0.45),
+                clampToGround: false,
+              },
+            })
+            satelliteEntitiesRef.current.push(track)
+          }
+        }
+
+        // ── SAR swath footprint — highlight when next capture window is soon
+        if (sat.nextCaptureWindow) {
+          const msUntil = sat.nextCaptureWindow.startMs - Date.now()
+          // Show swath corridor on ground track during capture window
+          const windowPts = sat.groundTrack
+            .filter(pt => pt.t >= sat.nextCaptureWindow!.startMs && pt.t <= sat.nextCaptureWindow!.endMs)
+            .map(pt => CesiumLib.Cartesian3.fromDegrees(pt.lng, pt.lat, 0))
+
+          if (windowPts.length > 1) {
+            const swath = viewer.entities.add({
+              polyline: {
+                positions: windowPts,
+                width: 8,
+                material: CesiumLib.Color.fromCssColorString('#00FF88').withAlpha(msUntil < 3_600_000 ? 0.6 : 0.2),
+                clampToGround: true,
+              },
+            })
+            satelliteEntitiesRef.current.push(swath)
+          }
+        }
+      }
+    }
+
+    render()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady, activeLayers.satellites, eventId])
 
   // ── Resize when globe becomes visible ────────────────────────────────────
   useEffect(() => {

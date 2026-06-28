@@ -142,6 +142,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
         activeLayers={activeLayers}
         damagePoints={damagePoints}
         onSelect={handleSelect}
+        eventId={eventId}
       />
 
       {/* Detail panel — slide-in over map area */}

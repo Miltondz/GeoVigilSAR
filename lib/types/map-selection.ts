@@ -20,3 +20,13 @@ export type SelectedMapObject =
       sarConfidence: number
       buildingType?: string
     }
+  | {
+      type: 'satellite'
+      noradId: number
+      name: string
+      lat: number
+      lng: number
+      altitudeKm: number
+      orbitClass: string
+      nextCaptureWindow: { startMs: number; endMs: number; maxElevationDeg: number } | null
+    }
