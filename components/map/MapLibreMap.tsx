@@ -285,7 +285,7 @@ export default function MapLibreMap({
     void load()
   }, [activeLayers.satellites, eventId, satellitePasses.length])
 
-  // Fetch + poll air traffic when the layer is active (every 30 s)
+  // Fetch + poll air traffic (60s — matches server TTL, stays within OpenSky anon quota)
   useEffect(() => {
     if (!activeLayers.airTraffic) return
 
@@ -301,7 +301,7 @@ export default function MapLibreMap({
     }
 
     void load()
-    const id = setInterval(() => void load(), 30_000)
+    const id = setInterval(() => void load(), 60_000)
     return () => clearInterval(id)
   }, [activeLayers.airTraffic])
 
@@ -493,6 +493,7 @@ export default function MapLibreMap({
               map={mapRef.current}
               aircraft={aircraft}
               visible={activeLayers.airTraffic ?? false}
+              onSelect={onSelectRef.current ?? undefined}
             />
             <SatelliteTrackLayer
               map={mapRef.current}

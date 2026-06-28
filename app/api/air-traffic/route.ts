@@ -5,7 +5,9 @@
 import { NextResponse } from 'next/server'
 import { getAirTrafficProvider } from '@/lib/airtraffic/provider'
 
-export const revalidate = 30 // Next.js ISR — regenerate every 30 seconds
+// OpenSky anon: 400 credits/day → floor every 216s. With auth: 4000/day → 22s floor.
+// 60s gives safe margin for both tiers; client polls match.
+export const revalidate = 60
 
 export async function GET(): Promise<NextResponse> {
   const provider = getAirTrafficProvider()
@@ -21,7 +23,7 @@ export async function GET(): Promise<NextResponse> {
     },
     {
       headers: {
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=90',
       },
     },
   )

@@ -21,6 +21,21 @@ export type SelectedMapObject =
       buildingType?: string
     }
   | {
+      type: 'aircraft'
+      icao24: string
+      callsign: string
+      lat: number
+      lng: number
+      baroAltitude: number | null
+      velocity: number | null
+      heading: number | null
+      verticalRate: number | null
+      onGround: boolean
+      originCountry: string
+      category: string
+      lastContact: number
+    }
+  | {
       type: 'satellite'
       noradId: number
       name: string

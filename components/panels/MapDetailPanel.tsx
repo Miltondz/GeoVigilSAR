@@ -201,22 +201,27 @@ export default function MapDetailPanel({ object, onClose, eventId }: MapDetailPa
 
   if (!object) return null
 
-  const isEq  = object.type === 'earthquake'
-  const isDmg = object.type === 'damage'
-  const isSat = object.type === 'satellite'
+  const isEq       = object.type === 'earthquake'
+  const isDmg      = object.type === 'damage'
+  const isSat      = object.type === 'satellite'
+  const isAircraft = object.type === 'aircraft'
 
   const keyword   = isEq ? placeKeyword(object.place) : isDmg ? object.address.split('—')[0].trim() : ''
   const typeColor = isEq
     ? (object.magnitude >= 6.5 ? 'var(--color-red)' : 'var(--color-amber)')
     : isDmg
     ? (object.damageType === 'collapsed' ? 'var(--color-red)' : 'var(--color-amber)')
-    : 'var(--color-cyan)'
+    : isAircraft && object.onGround ? 'var(--color-muted)' : 'var(--color-cyan)'
   const typeBadge = isEq
     ? `M ${object.magnitude.toFixed(1)} SISMO`
     : isDmg
     ? (object.damageType === 'collapsed' ? 'COLAPSO ESTRUCTURAL' : object.damageType === 'damaged' ? 'DAÑO ESTRUCTURAL' : 'ZONA AFECTADA')
-    : isSat ? `${object.orbitClass} · NORAD ${object.noradId}` : ''
-  const title     = isEq ? object.place : isDmg ? object.address : isSat ? object.name : ''
+    : isSat ? `${object.orbitClass} · NORAD ${object.noradId}`
+    : isAircraft ? (object.onGround ? 'EN TIERRA' : 'EN VUELO') : ''
+  const title     = isEq ? object.place
+    : isDmg ? object.address
+    : isSat ? object.name
+    : isAircraft ? `${object.callsign} — ${object.originCountry}` : ''
 
   return (
     /* backdrop */
@@ -406,6 +411,55 @@ export default function MapDetailPanel({ object, onClose, eventId }: MapDetailPa
             )
           })()}
 
+          {/* ── aircraft metadata ── */}
+          {isAircraft && (() => {
+            const ac = object
+            const altM    = ac.baroAltitude
+            const altFt   = altM != null ? Math.round(altM * 3.28084) : null
+            const spdKmh  = ac.velocity != null ? Math.round(ac.velocity * 3.6) : null
+            const vrSign  = ac.verticalRate != null ? (ac.verticalRate > 0 ? '▲' : ac.verticalRate < 0 ? '▼' : '►') : '—'
+            const vrMs    = ac.verticalRate != null ? `${vrSign} ${Math.abs(Math.round(ac.verticalRate * 100) / 100)} m/s` : '—'
+            const hdg     = ac.heading != null ? `${Math.round(ac.heading)}°` : '—'
+            const ago     = Math.round((Date.now() / 1000 - ac.lastContact))
+            return (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+                  <MetaCell label="VUELO"       value={ac.callsign}   accent="var(--color-cyan)" />
+                  <MetaCell label="ICAO24"      value={ac.icao24.toUpperCase()} accent="var(--color-muted)" />
+                  <MetaCell
+                    label="ALTITUD"
+                    value={altM != null ? `${Math.round(altM)} m · ${altFt?.toLocaleString()} ft` : '—'}
+                    accent={typeColor}
+                  />
+                  <MetaCell label="VELOCIDAD"   value={spdKmh != null ? `${spdKmh} km/h` : '—'} />
+                  <MetaCell label="TASA VERT."  value={vrMs} />
+                  <MetaCell label="RUMBO"       value={hdg} />
+                  <MetaCell label="CATEGORÍA"   value={ac.category.replace(/_/g, ' ')} />
+                  <MetaCell label="ÚLIMO CONT." value={`hace ${ago}s`} accent={ago > 120 ? 'var(--color-amber)' : undefined} />
+                </div>
+
+                <a
+                  href={`https://www.flightradar24.com/data/airplanes/${ac.icao24}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'block',
+                    fontFamily: 'var(--font-hud)',
+                    fontSize: '0.5rem',
+                    color: 'var(--color-cyan)',
+                    border: '1px solid var(--color-slate)',
+                    padding: '0.25rem 0.5rem',
+                    textDecoration: 'none',
+                    letterSpacing: '0.08em',
+                    textAlign: 'center',
+                  }}
+                >
+                  ↗ VER EN FLIGHTRADAR24
+                </a>
+              </>
+            )
+          })()}
+
           {/* ── USGS external link for earthquakes ── */}
           {isEq && (
             <a
@@ -428,8 +482,8 @@ export default function MapDetailPanel({ object, onClose, eventId }: MapDetailPa
             </a>
           )}
 
-          {/* ── news ── */}
-          <NewsSection keyword={keyword} eventId={eventId} />
+          {/* ── news (not shown for aircraft/satellite — no place context) ── */}
+          {(isEq || isDmg) && <NewsSection keyword={keyword} eventId={eventId} />}
         </div>
 
         {/* footer coords */}
