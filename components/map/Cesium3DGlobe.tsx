@@ -50,6 +50,7 @@ interface Cesium3DGlobeProps {
   earthquakes: EarthquakeMarker[]
   visible: boolean
   satellite?: boolean
+  activeLayers?: Record<string, boolean>
 }
 
 export default function Cesium3DGlobe({
@@ -57,11 +58,15 @@ export default function Cesium3DGlobe({
   earthquakes,
   visible,
   satellite = false,
+  activeLayers = {},
 }: Cesium3DGlobeProps) {
   const containerRef      = useRef<HTMLDivElement>(null)
   const viewerRef         = useRef<CesiumViewer | null>(null)
-  const entitiesRef       = useRef<CesiumEntity[]>([])
-  const staticEntitiesRef = useRef<CesiumEntity[]>([])
+  const mainshockEntitiesRef = useRef<CesiumEntity[]>([]) // M≥6.5 mainshock markers
+  const aftershockEntitiesRef = useRef<CesiumEntity[]>([]) // M<6.5 aftershock markers
+  const entitiesRef          = useRef<CesiumEntity[]>([])  // all earthquake entities (for cleanup)
+  const faultEntitiesRef     = useRef<CesiumEntity[]>([])  // fault polylines
+  const impactEntitiesRef    = useRef<CesiumEntity[]>([])  // cone + wave pulse
   const earthquakesRef    = useRef<EarthquakeMarker[]>([])
   const [cesiumReady, setCesiumReady] = useState(false)
   const [error, setError]             = useState<string | null>(null)
@@ -156,7 +161,10 @@ export default function Cesium3DGlobe({
       }
       viewerRef.current = null
       entitiesRef.current = []
-      staticEntitiesRef.current = []
+      faultEntitiesRef.current = []
+      impactEntitiesRef.current = []
+      mainshockEntitiesRef.current = []
+      aftershockEntitiesRef.current = []
     }
     // epicenter is used only for the initial flyTo — intentionally excluded
     // from deps so Cesium re-initializes only once.
@@ -173,15 +181,17 @@ export default function Cesium3DGlobe({
       const CesiumLib = await import('cesium')
       if (viewer.isDestroyed()) return
 
-      // Remove previous static entities (guard against double-init)
-      for (const ent of staticEntitiesRef.current) {
+      // Clear previous static entities
+      for (const ent of [...faultEntitiesRef.current, ...impactEntitiesRef.current]) {
         viewer.entities.remove(ent)
       }
-      staticEntitiesRef.current = []
+      faultEntitiesRef.current = []
+      impactEntitiesRef.current = []
 
       // Fault polylines — Boconó-Morón-El Pilar
       for (const coords of FAULT_SEGMENTS) {
         const ent = viewer.entities.add({
+          show: !!(activeLayers.faults ?? false),
           polyline: {
             positions: CesiumLib.Cartesian3.fromDegreesArray(coords),
             material: new CesiumLib.PolylineGlowMaterialProperty({
@@ -191,11 +201,12 @@ export default function Cesium3DGlobe({
             width: 3,
           },
         })
-        staticEntitiesRef.current.push(ent)
+        faultEntitiesRef.current.push(ent)
       }
 
       // Impact cone — 100 km radius centered on epicenter
       const coneEnt = viewer.entities.add({
+        show: !!(activeLayers.shakemap ?? true),
         position: CesiumLib.Cartesian3.fromDegrees(epicenter.lng, epicenter.lat),
         ellipse: {
           semiMajorAxis: IMPACT_RADIUS,
@@ -207,7 +218,7 @@ export default function Cesium3DGlobe({
           height: 0,
         },
       })
-      staticEntitiesRef.current.push(coneEnt)
+      impactEntitiesRef.current.push(coneEnt)
 
       // Seismic wave pulse — animated ellipse expanding from epicenter
       const waveStart = Date.now()
@@ -228,6 +239,7 @@ export default function Cesium3DGlobe({
       }, false)
 
       const waveEnt = viewer.entities.add({
+        show: !!(activeLayers.shakemap ?? true),
         position: CesiumLib.Cartesian3.fromDegrees(epicenter.lng, epicenter.lat),
         ellipse: {
           semiMajorAxis: waveRadius,
@@ -239,7 +251,7 @@ export default function Cesium3DGlobe({
           height: 0,
         },
       })
-      staticEntitiesRef.current.push(waveEnt)
+      impactEntitiesRef.current.push(waveEnt)
     }
 
     addStaticGeometry()
@@ -247,11 +259,12 @@ export default function Cesium3DGlobe({
     return () => {
       const v = viewerRef.current
       if (v && !v.isDestroyed()) {
-        for (const ent of staticEntitiesRef.current) {
+        for (const ent of [...faultEntitiesRef.current, ...impactEntitiesRef.current]) {
           v.entities.remove(ent)
         }
       }
-      staticEntitiesRef.current = []
+      faultEntitiesRef.current = []
+      impactEntitiesRef.current = []
     }
     // epicenter values are constant — excluded from deps intentionally
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -259,6 +272,27 @@ export default function Cesium3DGlobe({
 
   // Keep earthquakesRef in sync for click handler lookups
   useEffect(() => { earthquakesRef.current = earthquakes }, [earthquakes])
+
+  // ── Layer visibility toggles ──────────────────────────────────────────────
+  useEffect(() => {
+    const show = !!(activeLayers.faults ?? false)
+    for (const ent of faultEntitiesRef.current) ent.show = show
+  }, [activeLayers.faults])
+
+  useEffect(() => {
+    const show = !!(activeLayers.shakemap ?? true)
+    for (const ent of impactEntitiesRef.current) ent.show = show
+  }, [activeLayers.shakemap])
+
+  useEffect(() => {
+    const show = !!(activeLayers.epicenters ?? true)
+    for (const ent of mainshockEntitiesRef.current) ent.show = show
+  }, [activeLayers.epicenters])
+
+  useEffect(() => {
+    const show = !!(activeLayers.aftershocks ?? true)
+    for (const ent of aftershockEntitiesRef.current) ent.show = show
+  }, [activeLayers.aftershocks])
 
   // ── Satellite imagery layer toggle ────────────────────────────────────────
   useEffect(() => {
@@ -300,20 +334,25 @@ export default function Cesium3DGlobe({
       if (viewer.isDestroyed()) return
 
       // Remove previous markers
-      for (const ent of entitiesRef.current) {
-        viewer.entities.remove(ent)
-      }
+      for (const ent of entitiesRef.current) viewer.entities.remove(ent)
       entitiesRef.current = []
+      mainshockEntitiesRef.current = []
+      aftershockEntitiesRef.current = []
+
+      const showMain  = !!(activeLayers.epicenters  ?? true)
+      const showAfter = !!(activeLayers.aftershocks ?? true)
 
       for (const eq of earthquakes) {
+        const isMain = eq.magnitude >= 6.5
         const hex =
           eq.magnitude >= 6.5 ? C_RED :
           eq.magnitude >= 4   ? C_AMBER :
                                 C_GREEN
-
         const color = CesiumLib.Color.fromCssColorString(hex)
 
         const entity = viewer.entities.add({
+          id:   eq.id,
+          show: isMain ? showMain : showAfter,
           position: CesiumLib.Cartesian3.fromDegrees(eq.lng, eq.lat),
           point: {
             pixelSize:    Math.max(8, eq.magnitude * 4),
@@ -329,17 +368,18 @@ export default function Cesium3DGlobe({
             outlineWidth: 2,
             style:        CesiumLib.LabelStyle.FILL_AND_OUTLINE,
             pixelOffset:  new CesiumLib.Cartesian2(0, -20),
-            // Always render labels on top regardless of terrain occlusion
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
           },
         })
 
         entitiesRef.current.push(entity)
+        if (isMain) mainshockEntitiesRef.current.push(entity)
+        else aftershockEntitiesRef.current.push(entity)
       }
     }
 
     update()
-  }, [earthquakes, cesiumReady])
+  }, [earthquakes, cesiumReady, activeLayers.epicenters, activeLayers.aftershocks])
 
   // ── Resize when globe becomes visible ────────────────────────────────────
   useEffect(() => {

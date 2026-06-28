@@ -116,6 +116,8 @@ export default function LayerToggle({ layers, onChange, className = '' }: LayerT
             right: 0,
             marginTop: 4,
             width: 240,
+            maxHeight: 'calc(100vh - 80px)',
+            overflowY: 'auto',
             backgroundColor: 'var(--color-panel)',
             border: '1px solid var(--color-slate)',
             padding: '0.75rem',
