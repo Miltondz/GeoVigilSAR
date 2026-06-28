@@ -65,6 +65,7 @@ interface Cesium3DGlobeProps {
   onSelect?: (obj: SelectedMapObject | null) => void
   onViewportChange?: (bbox: ViewportBbox) => void
   eventId?: string
+  flyTo?: { lat: number; lng: number; name?: string } | null
   // Air traffic
   aircraft?: AircraftState[]
   flightRoute?: FlightRoute | null
@@ -81,6 +82,7 @@ export default function Cesium3DGlobe({
   onSelect,
   onViewportChange,
   eventId = 'VEN-2406',
+  flyTo,
   aircraft = [],
   flightRoute,
   selectedAircraftIcao24,
@@ -932,6 +934,20 @@ export default function Cesium3DGlobe({
     render()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cesiumReady, flightRoute])
+
+  // ── FlyTo target (zone search / saved events) ─────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current || !flyTo) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+    import('cesium').then(CesiumLib => {
+      if (viewer.isDestroyed()) return
+      viewer.camera.flyTo({
+        destination: CesiumLib.Cartesian3.fromDegrees(flyTo.lng, flyTo.lat, 80_000),
+        duration: 1.5,
+      })
+    }).catch(() => {})
+  }, [cesiumReady, flyTo])
 
   // ── Resize when globe becomes visible ────────────────────────────────────
   useEffect(() => {

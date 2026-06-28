@@ -106,7 +106,9 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const handleEventChange = useCallback((eventId: string) => {
     setActiveEventId(eventId)
     setLiveEarthquakes([])
-    setDateFilter({ start: '2026-06-24', end: new Date().toISOString().slice(0, 10) })
+    const ev = getEvent(eventId)
+    const evDate = new Date(ev.mainShockTime).toISOString().slice(0, 10)
+    setDateFilter({ start: evDate, end: new Date().toISOString().slice(0, 10) })
   }, [])
 
   const handleZoomTo = useCallback((lat: number, lng: number, name: string) => {

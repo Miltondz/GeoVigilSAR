@@ -17,6 +17,7 @@ import type { EarthquakeMarker } from './Cesium3DGlobe'
 import type { DamagePoint } from '@/lib/events/ven-2406'
 import ZoneAnalyzeButton from './controls/ZoneAnalyzeButton'
 import type { ZoneSnapshot } from '@/lib/zone-cache'
+import { getEvent } from '@/lib/events/index'
 
 // MapLibre requires client-only — no SSR
 const MapLibreMap = dynamic(() => import('./MapLibreMap'), {
@@ -161,7 +162,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
       .catch(() => {})
   }, [selectedObject])
 
-  const epicenter                = { lat: 10.4, lng: -68.7 }
+  const epicenter                = getEvent(eventId).epicenter
   const selectedAircraftIcao24  = selectedObject?.type === 'aircraft' ? selectedObject.icao24 : null
 
   return (
@@ -208,6 +209,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
           aircraft={aircraft}
           flightRoute={flightRoute}
           selectedAircraftIcao24={selectedAircraftIcao24}
+          flyTo={flyTo}
         />
       </div>
 

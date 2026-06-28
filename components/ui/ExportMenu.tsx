@@ -16,10 +16,9 @@ interface ExportMenuProps {
     classification: string
   }[]
   stats?: Record<string, unknown>
-  mapCanvasRef?: React.RefObject<HTMLCanvasElement>
 }
 
-export default function ExportMenu({ eventId, earthquakes = [], stats, mapCanvasRef }: ExportMenuProps) {
+export default function ExportMenu({ eventId, earthquakes = [], stats }: ExportMenuProps) {
   const [open, setOpen] = useState(false)
   const [exporting, setExporting] = useState<string | null>(null)
 
@@ -30,9 +29,12 @@ export default function ExportMenu({ eventId, earthquakes = [], stats, mapCanvas
         exportEarthquakesCSV(earthquakes, eventId)
       } else if (type === 'json' && stats) {
         exportStatsJSON(stats, eventId)
-      } else if (type === 'png' && mapCanvasRef?.current) {
-        const { exportMapPNG } = await import('@/lib/export')
-        exportMapPNG(mapCanvasRef.current, eventId)
+      } else if (type === 'png') {
+        const canvas = document.querySelector<HTMLCanvasElement>('canvas.maplibregl-canvas')
+        if (canvas) {
+          const { exportMapPNG } = await import('@/lib/export')
+          exportMapPNG(canvas, eventId)
+        }
       }
     } finally {
       setExporting(null)
@@ -41,7 +43,7 @@ export default function ExportMenu({ eventId, earthquakes = [], stats, mapCanvas
   }
 
   const items = [
-    { id: 'png', label: 'Mapa PNG', available: !!mapCanvasRef },
+    { id: 'png', label: 'Mapa PNG', available: true },
     { id: 'csv', label: `Réplicas CSV (${earthquakes.length})`, available: earthquakes.length > 0 },
     { id: 'json', label: 'Stats JSON', available: !!stats },
   ]
