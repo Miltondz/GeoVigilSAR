@@ -63,26 +63,32 @@ Si no tienes datos suficientes, dilo claramente. No especules más allá
 de lo que los datos permiten. Respuestas cortas y estructuradas.
 Usa números concretos. Prioriza utilidad operacional.`
 
-export function buildSystemPrompt(ctx: AIContext): string {
-  const quakesSection = ctx.recentEarthquakes.length > 0
-    ? `\n--- SISMOS RECIENTES (${ctx.recentEarthquakes.length} en área visible) ---\n` +
-      ctx.recentEarthquakes
+export function buildSystemPrompt(ctx: Partial<AIContext> & { eventId: string }): string {
+  const quakes = ctx.recentEarthquakes ?? []
+  const news   = ctx.recentNews       ?? []
+  const layers = ctx.activeLayers     ?? []
+  const stats  = ctx.latestStats
+
+  const quakesSection = quakes.length > 0
+    ? `\n--- SISMOS RECIENTES (${quakes.length} en área visible) ---\n` +
+      quakes
         .slice(0, 10)
         .map(q => `M${q.magnitude.toFixed(1)} · ${q.place} · prof. ${q.depth.toFixed(0)}km · ${new Date(q.time).toISOString()}`)
         .join('\n')
     : ''
 
-  const statsSection = `\n--- ESTADÍSTICAS HUMANITARIAS ---\nFallecidos: ${ctx.latestStats.fatalities} | Heridos: ${ctx.latestStats.injured} | Fuente: ${ctx.latestStats.source} | ${new Date(ctx.latestStats.timestamp).toISOString()}`
-
-  const newsSection = ctx.recentNews.length > 0
-    ? `\n--- NOTICIAS RECIENTES (${ctx.recentNews.length}) ---\n` +
-      ctx.recentNews
-        .slice(0, 5)
-        .map(n => `[${n.source}] ${n.title}`)
-        .join('\n')
+  const statsSection = stats
+    ? `\n--- ESTADÍSTICAS HUMANITARIAS ---\nFallecidos: ${stats.fatalities} | Heridos: ${stats.injured} | Fuente: ${stats.source} | ${new Date(stats.timestamp).toISOString()}`
     : ''
 
-  const layersSection = `\n--- CAPAS ACTIVAS ---\n${ctx.activeLayers.join(', ')}`
+  const newsSection = news.length > 0
+    ? `\n--- NOTICIAS RECIENTES (${news.length}) ---\n` +
+      news.slice(0, 5).map(n => `[${n.source}] ${n.title}`).join('\n')
+    : ''
+
+  const layersSection = layers.length > 0
+    ? `\n--- CAPAS ACTIVAS ---\n${layers.join(', ')}`
+    : ''
 
   return SYSTEM_BASE + quakesSection + statsSection + newsSection + layersSection
 }

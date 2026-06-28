@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { buildSystemPrompt, getAIClient, DEFAULT_MODEL, type AIContext } from '@/lib/ai'
+import { buildSystemPrompt, getAIClient, DEFAULT_MODEL } from '@/lib/ai'
 
 export const runtime = 'nodejs'
 
@@ -11,7 +11,7 @@ interface ChatMessage {
 interface AIRequest {
   message: string
   history: ChatMessage[]
-  context: AIContext
+  context: { eventId: string; [k: string]: unknown }
 }
 
 export async function POST(req: NextRequest) {
