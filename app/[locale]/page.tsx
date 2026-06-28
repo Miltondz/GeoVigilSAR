@@ -26,7 +26,7 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   sarLband:        false,
   ariaDPM:         false,
   firms:           false,
-  satellite:       false,
+  satellite:       true,
   damagePoints:    true,
   hospitals:       false,
   shelters:        false,

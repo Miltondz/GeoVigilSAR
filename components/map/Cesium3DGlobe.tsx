@@ -49,12 +49,14 @@ interface Cesium3DGlobeProps {
   epicenter: { lat: number; lng: number }
   earthquakes: EarthquakeMarker[]
   visible: boolean
+  satellite?: boolean
 }
 
 export default function Cesium3DGlobe({
   epicenter,
   earthquakes,
   visible,
+  satellite = false,
 }: Cesium3DGlobeProps) {
   const containerRef      = useRef<HTMLDivElement>(null)
   const viewerRef         = useRef<CesiumViewer | null>(null)
@@ -114,13 +116,9 @@ export default function Cesium3DGlobe({
         viewer.scene.backgroundColor =
           CesiumLib.Color.fromCssColorString(C_BG)
 
-        // Instant fly-to epicenter at 500 km altitude
+        // Fly to damage zone (La Guaira/Caracas corridor) at 60 km for city-level view
         viewer.camera.flyTo({
-          destination: CesiumLib.Cartesian3.fromDegrees(
-            epicenter.lng,
-            epicenter.lat,
-            500_000
-          ),
+          destination: CesiumLib.Cartesian3.fromDegrees(-66.93, 10.52, 60_000),
           duration: 0,
         })
 
@@ -261,6 +259,35 @@ export default function Cesium3DGlobe({
 
   // Keep earthquakesRef in sync for click handler lookups
   useEffect(() => { earthquakesRef.current = earthquakes }, [earthquakes])
+
+  // ── Satellite imagery layer toggle ────────────────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+
+    const toggle = async () => {
+      const CesiumLib = await import('cesium')
+      if (viewer.isDestroyed()) return
+
+      // Remove any existing satellite layer (index > 0 to keep dark basemap)
+      while (viewer.imageryLayers.length > 1) {
+        viewer.imageryLayers.remove(viewer.imageryLayers.get(viewer.imageryLayers.length - 1))
+      }
+
+      if (satellite) {
+        viewer.imageryLayers.addImageryProvider(
+          new CesiumLib.UrlTemplateImageryProvider({
+            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            credit: '© Esri, DigitalGlobe, GeoEye, USDA FSA, USGS',
+            maximumLevel: 19,
+          })
+        )
+      }
+    }
+
+    toggle()
+  }, [cesiumReady, satellite])
 
   // ── Update earthquake markers when data changes ───────────────────────────
   useEffect(() => {

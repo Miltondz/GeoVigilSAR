@@ -127,6 +127,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
         epicenter={epicenter}
         earthquakes={earthquakes.map(toMarker)}
         visible={viewMode === '3d'}
+        satellite={!!activeLayers.satellite}
       />
 
       {/* Vision mode overlay — covers full map canvas, below UI controls */}
