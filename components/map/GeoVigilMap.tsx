@@ -45,10 +45,15 @@ interface FlyToTarget {
   name?: string
 }
 
+interface ViewportBbox {
+  minLat: number; maxLat: number; minLng: number; maxLng: number
+}
+
 interface GeoVigilMapProps {
   activeLayers: Record<string, boolean>
   eventId: string
   onEarthquakesLoaded?: (earthquakes: Earthquake[]) => void
+  onViewportChange?: (bbox: ViewportBbox) => void
   timelinePhase?: 'pre' | 'main' | 'post'
   timelineMs?: number
   flyTo?: FlyToTarget | null
@@ -78,7 +83,7 @@ function toMarker(eq: Earthquake): EarthquakeMarker {
   return { id: eq.id, magnitude: eq.magnitude, lat: eq.lat, lng: eq.lng, depth: eq.depth, place: eq.place, time: eq.time }
 }
 
-export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, timelinePhase, timelineMs, flyTo, damagePoints = [], dateFilter }: GeoVigilMapProps) {
+export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, onViewportChange, timelinePhase, timelineMs, flyTo, damagePoints = [], dateFilter }: GeoVigilMapProps) {
   const [earthquakes, setEarthquakes]       = useState<Earthquake[]>([])
   const [lastFetch, setLastFetch]           = useState(0)
   const [viewMode, setViewMode]             = useState<'2d' | '3d'>('3d')
@@ -86,6 +91,11 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   const [selectedObject, setSelectedObject] = useState<SelectedMapObject | null>(null)
   const [flightRoute, setFlightRoute]       = useState<FlightRoute | null>(null)
   const [aircraft, setAircraft]             = useState<AircraftState[]>([])
+  const [viewportBbox, setViewportBbox]     = useState<ViewportBbox | null>(null)
+  const onViewportChangeRef                 = useCallback((bbox: ViewportBbox) => {
+    setViewportBbox(bbox)
+    onViewportChange?.(bbox)
+  }, [onViewportChange])
 
   const handleSelect = useCallback((obj: SelectedMapObject | null) => setSelectedObject(obj), [])
   const handleCloseDetail = useCallback(() => {
@@ -93,13 +103,19 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
     setFlightRoute(null)
   }, [])
 
-  // Fetch USGS earthquakes
+  // Fetch USGS earthquakes — re-triggers when viewport bbox changes
   useEffect(() => {
     const load = async () => {
       try {
         const params = new URLSearchParams({ eventId })
         if (dateFilter?.start) params.set('startTime', dateFilter.start)
         if (dateFilter?.end)   params.set('endTime',   dateFilter.end)
+        if (viewportBbox) {
+          params.set('minLat', viewportBbox.minLat.toFixed(4))
+          params.set('maxLat', viewportBbox.maxLat.toFixed(4))
+          params.set('minLng', viewportBbox.minLng.toFixed(4))
+          params.set('maxLng', viewportBbox.maxLng.toFixed(4))
+        }
         const res = await fetch(`/api/earthquakes?${params.toString()}`)
         if (!res.ok) return
         const data = await res.json()
@@ -112,7 +128,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
     load()
     const id = setInterval(load, 60000)
     return () => clearInterval(id)
-  }, [eventId, onEarthquakesLoaded, dateFilter])
+  }, [eventId, onEarthquakesLoaded, dateFilter, viewportBbox])
 
   // Fetch + poll air traffic (60s — stays within OpenSky anon quota)
   useEffect(() => {
@@ -167,6 +183,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
             flyTo={flyTo}
             damagePoints={damagePoints}
             onSelect={handleSelect}
+            onViewportChange={onViewportChangeRef}
             aircraft={aircraft}
             flightRoute={flightRoute}
             selectedAircraftIcao24={selectedAircraftIcao24}
@@ -182,6 +199,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
           activeLayers={activeLayers}
           damagePoints={damagePoints}
           onSelect={handleSelect}
+          onViewportChange={onViewportChangeRef}
           eventId={eventId}
           aircraft={aircraft}
           flightRoute={flightRoute}

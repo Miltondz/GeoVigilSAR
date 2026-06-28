@@ -68,6 +68,9 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [humanStats, setHumanStats] = useState<{
     fatalities: number; injured: number
   } | null>(null)
+  const [viewportBbox, setViewportBbox] = useState<{
+    minLat: number; maxLat: number; minLng: number; maxLng: number
+  } | null>(null)
 
   useEffect(() => {
     setHumanStats(null)
@@ -103,7 +106,20 @@ export default function DashboardPage({ params }: { params: { locale: string } }
     setMapTarget({ lat, lng, name })
   }, [])
 
+  const handleViewportChange = useCallback((bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => {
+    setViewportBbox(bbox)
+  }, [])
+
   const event = getEvent(activeEventId)
+
+  // Show viewport center as region label when user has panned away from event
+  const viewportLocation = viewportBbox ? (() => {
+    const centerLat = ((viewportBbox.minLat + viewportBbox.maxLat) / 2).toFixed(2)
+    const centerLng = ((viewportBbox.minLng + viewportBbox.maxLng) / 2).toFixed(2)
+    const latDir = parseFloat(centerLat) >= 0 ? 'N' : 'S'
+    const lngDir = parseFloat(centerLng) >= 0 ? 'E' : 'W'
+    return `${Math.abs(parseFloat(centerLat))}°${latDir}, ${Math.abs(parseFloat(centerLng))}°${lngDir}`
+  })() : `${event.epicenter.lat.toFixed(2)}°N, ${Math.abs(event.epicenter.lng).toFixed(2)}°W`
 
   const timelinePhase = useMemo((): 'pre' | 'main' | 'post' => {
     if (timelineValue < 40) return 'pre'
@@ -179,7 +195,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
           eventId={activeEventId}
           stats={stats}
           mainShocks={mainShocks}
-          location={`${event.epicenter.lat.toFixed(2)}°N, ${Math.abs(event.epicenter.lng).toFixed(2)}°W`}
+          location={viewportLocation}
           faultSystem={event.faultSystem}
           dataStream={dataStream}
           onHospitalDetailOpen={() => setHospitalPanelOpen(true)}
@@ -190,6 +206,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
             activeLayers={activeLayers}
             eventId={activeEventId}
             onEarthquakesLoaded={setLiveEarthquakes}
+            onViewportChange={handleViewportChange}
             timelinePhase={timelinePhase}
             timelineMs={timelineMs}
             flyTo={mapTarget}

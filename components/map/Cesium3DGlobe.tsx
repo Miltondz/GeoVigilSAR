@@ -51,6 +51,10 @@ export interface EarthquakeMarker {
   time?: number
 }
 
+interface ViewportBbox {
+  minLat: number; maxLat: number; minLng: number; maxLng: number
+}
+
 interface Cesium3DGlobeProps {
   epicenter: { lat: number; lng: number }
   earthquakes: EarthquakeMarker[]
@@ -59,6 +63,7 @@ interface Cesium3DGlobeProps {
   activeLayers?: Record<string, boolean>
   damagePoints?: DamagePoint[]
   onSelect?: (obj: SelectedMapObject | null) => void
+  onViewportChange?: (bbox: ViewportBbox) => void
   eventId?: string
   // Air traffic
   aircraft?: AircraftState[]
@@ -74,13 +79,16 @@ export default function Cesium3DGlobe({
   activeLayers = {},
   damagePoints = [],
   onSelect,
+  onViewportChange,
   eventId = 'VEN-2406',
   aircraft = [],
   flightRoute,
   selectedAircraftIcao24,
 }: Cesium3DGlobeProps) {
-  const containerRef      = useRef<HTMLDivElement>(null)
-  const viewerRef         = useRef<CesiumViewer | null>(null)
+  const containerRef         = useRef<HTMLDivElement>(null)
+  const viewerRef            = useRef<CesiumViewer | null>(null)
+  const onViewportChangeRef  = useRef(onViewportChange)
+  useEffect(() => { onViewportChangeRef.current = onViewportChange }, [onViewportChange])
   const mainshockEntitiesRef  = useRef<CesiumEntity[]>([]) // M≥6.5 mainshock markers
   const aftershockEntitiesRef = useRef<CesiumEntity[]>([]) // M<6.5 aftershock markers
   const entitiesRef           = useRef<CesiumEntity[]>([])  // all earthquake entities (for cleanup)
@@ -244,6 +252,22 @@ export default function Cesium3DGlobe({
         }, CesiumLib.ScreenSpaceEventType.LEFT_CLICK)
 
         viewerRef.current = viewer
+
+        // Emit viewport bbox on camera stop
+        const emitCameraViewport = () => {
+          if (!onViewportChangeRef.current) return
+          const rect = viewer.camera.computeViewRectangle(viewer.scene.globe.ellipsoid)
+          if (rect) {
+            onViewportChangeRef.current({
+              minLat: CesiumLib.Math.toDegrees(rect.south),
+              maxLat: CesiumLib.Math.toDegrees(rect.north),
+              minLng: CesiumLib.Math.toDegrees(rect.west),
+              maxLng: CesiumLib.Math.toDegrees(rect.east),
+            })
+          }
+        }
+        viewer.camera.moveEnd.addEventListener(emitCameraViewport)
+
         if (!cancelled) setCesiumReady(true)
       } catch (err) {
         if (!cancelled) {

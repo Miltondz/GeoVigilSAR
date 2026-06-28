@@ -54,6 +54,10 @@ interface FlyToTarget {
   name?: string
 }
 
+interface ViewportBbox {
+  minLat: number; maxLat: number; minLng: number; maxLng: number
+}
+
 interface MapLibreMapProps {
   activeLayers: ActiveLayers
   eventId: string
@@ -65,6 +69,7 @@ interface MapLibreMapProps {
   flyTo?: FlyToTarget | null
   damagePoints?: DamagePoint[]
   onSelect?: (obj: SelectedMapObject | null) => void
+  onViewportChange?: (bbox: ViewportBbox) => void
   // Lifted from GeoVigilMap
   aircraft?: AircraftState[]
   flightRoute?: FlightRoute | null
@@ -90,6 +95,7 @@ export default function MapLibreMap({
   flyTo,
   damagePoints = [],
   onSelect,
+  onViewportChange,
   aircraft: aircraftProp = [],
   flightRoute,
   selectedAircraftIcao24,
@@ -97,8 +103,11 @@ export default function MapLibreMap({
   const containerRef  = useRef<HTMLDivElement>(null)
   const mapRef        = useRef<maplibregl.Map | null>(null)
   const osmLayerIdsRef = useRef<string[]>([])
-  const onSelectRef   = useRef(onSelect)
+  const onSelectRef          = useRef(onSelect)
+  const onViewportChangeRef  = useRef(onViewportChange)
   useEffect(() => { onSelectRef.current = onSelect }, [onSelect])
+  useEffect(() => { onViewportChangeRef.current = onViewportChange }, [onViewportChange])
+  const viewportTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
   const [viewport, setViewport] = useState({ lat: center[1], lng: center[0], zoom })
   const [targeting, setTargeting] = useState<{ x: number; y: number; nodeId: string; coords?: { lat: number; lng: number } } | null>(null)
@@ -144,6 +153,19 @@ export default function MapLibreMap({
     map.on('move', () => {
       const c = map.getCenter()
       setViewport({ lat: c.lat, lng: c.lng, zoom: map.getZoom() })
+    })
+
+    const emitBbox = () => {
+      const b = map.getBounds()
+      onViewportChangeRef.current?.({
+        minLat: b.getSouth(), maxLat: b.getNorth(),
+        minLng: b.getWest(),  maxLng: b.getEast(),
+      })
+    }
+
+    map.on('moveend', () => {
+      if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current)
+      viewportTimerRef.current = setTimeout(emitBbox, 600)
     })
 
     // Hover cursor on clickable layers
