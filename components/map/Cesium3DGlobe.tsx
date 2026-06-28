@@ -8,6 +8,15 @@ import type { SatellitePass } from '@/lib/orbits'
 import type { AircraftState } from '@/lib/opensky'
 import type { FlightRoute } from '@/lib/airports'
 import { countryFlag } from '@/lib/country-flags'
+import type { AviationAirport } from '@/lib/aviationstack'
+import type { WeatherPoint } from '@/lib/open-meteo'
+import { windDirArrow, weatherCodeLabel } from '@/lib/open-meteo'
+import type { BuoyObservation } from '@/lib/ndbc'
+import type { OsmFeature } from '@/lib/overpass'
+import type { AdminBoundary } from '@/lib/hdx'
+import type { UsaidDeclaration } from '@/lib/usaid'
+import type { FtsFlow } from '@/lib/fts'
+import { topDonors, getDonorPosition } from '@/lib/fts'
 
 // Boconó-Morón-El Pilar fault system coordinates [lng, lat, lng, lat, ...]
 // Duplicated from FaultLinesLayer to avoid cross-tree imports
@@ -70,6 +79,14 @@ interface Cesium3DGlobeProps {
   aircraft?: AircraftState[]
   flightRoute?: FlightRoute | null
   selectedAircraftIcao24?: string | null
+  // New API layers
+  airports?: AviationAirport[]
+  weatherPoints?: WeatherPoint[]
+  buoys?: BuoyObservation[]
+  osmFeatures?: OsmFeature[]
+  boundaries?: (AdminBoundary & { population: number | null })[]
+  usaidDeclarations?: UsaidDeclaration[]
+  ftsFlows?: FtsFlow[]
 }
 
 export default function Cesium3DGlobe({
@@ -86,6 +103,13 @@ export default function Cesium3DGlobe({
   aircraft = [],
   flightRoute,
   selectedAircraftIcao24,
+  airports = [],
+  weatherPoints = [],
+  buoys = [],
+  osmFeatures = [],
+  boundaries = [],
+  usaidDeclarations = [],
+  ftsFlows = [],
 }: Cesium3DGlobeProps) {
   const containerRef         = useRef<HTMLDivElement>(null)
   const viewerRef            = useRef<CesiumViewer | null>(null)
@@ -102,6 +126,13 @@ export default function Cesium3DGlobe({
   const aircraftEntitiesRef   = useRef<CesiumEntity[]>([])  // 3D aircraft icons + labels
   const routeEntitiesRef      = useRef<CesiumEntity[]>([])  // departure/arrival airport markers
   const aircraftRef           = useRef<AircraftState[]>([]) // live aircraft for click handler
+  const airportEntitiesRef    = useRef<CesiumEntity[]>([])
+  const weatherEntitiesRef    = useRef<CesiumEntity[]>([])
+  const buoyEntitiesRef       = useRef<CesiumEntity[]>([])
+  const osmEntitiesRef        = useRef<CesiumEntity[]>([])
+  const adminEntitiesRef      = useRef<CesiumEntity[]>([])
+  const usaidEntitiesRef      = useRef<CesiumEntity[]>([])
+  const fundingEntitiesRef    = useRef<CesiumEntity[]>([])
   const earthquakesRef  = useRef<EarthquakeMarker[]>([])
   const damagePointsRef = useRef<DamagePoint[]>([])
   const onSelectRef     = useRef(onSelect)
@@ -298,6 +329,13 @@ export default function Cesium3DGlobe({
       satelliteEntitiesRef.current = []
       aircraftEntitiesRef.current = []
       routeEntitiesRef.current = []
+      airportEntitiesRef.current = []
+      weatherEntitiesRef.current = []
+      buoyEntitiesRef.current = []
+      osmEntitiesRef.current = []
+      adminEntitiesRef.current = []
+      usaidEntitiesRef.current = []
+      fundingEntitiesRef.current = []
     }
     // epicenter is used only for the initial flyTo — intentionally excluded
     // from deps so Cesium re-initializes only once.
@@ -934,6 +972,329 @@ export default function Cesium3DGlobe({
     render()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cesiumReady, flightRoute])
+
+  // ── Airports (cyan dots) ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+    const show = !!(activeLayers.airports ?? false)
+    import('cesium').then(CesiumLib => {
+      if (viewer.isDestroyed()) return
+      for (const ent of airportEntitiesRef.current) viewer.entities.remove(ent)
+      airportEntitiesRef.current = []
+      if (!show || airports.length === 0) return
+      for (const ap of airports) {
+        const ent = viewer.entities.add({
+          position: CesiumLib.Cartesian3.fromDegrees(ap.longitude, ap.latitude, 10),
+          point: {
+            pixelSize: 9,
+            color: CesiumLib.Color.fromCssColorString('#00B4FF'),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 1.5,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            heightReference: CesiumLib.HeightReference.CLAMP_TO_GROUND,
+          },
+          label: {
+            text: ap.iataCode,
+            font: '10px monospace',
+            fillColor: CesiumLib.Color.fromCssColorString('#00B4FF'),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 2,
+            style: CesiumLib.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new CesiumLib.Cartesian2(0, -16),
+            verticalOrigin: CesiumLib.VerticalOrigin.BOTTOM,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+        })
+        airportEntitiesRef.current.push(ent)
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady, activeLayers.airports, airports])
+
+  // ── Weather points ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+    const show = !!(activeLayers.weather ?? false)
+    import('cesium').then(CesiumLib => {
+      if (viewer.isDestroyed()) return
+      for (const ent of weatherEntitiesRef.current) viewer.entities.remove(ent)
+      weatherEntitiesRef.current = []
+      if (!show || weatherPoints.length === 0) return
+      for (const wp of weatherPoints) {
+        const arrow = windDirArrow(wp.current.windDirection10m)
+        const label = weatherCodeLabel(wp.current.weatherCode, 'es')
+        const ent = viewer.entities.add({
+          position: CesiumLib.Cartesian3.fromDegrees(wp.lng, wp.lat, 500),
+          point: {
+            pixelSize: 8,
+            color: wp.current.precipitation > 1
+              ? CesiumLib.Color.fromCssColorString('#FFB800')
+              : CesiumLib.Color.fromCssColorString('#00B4FF'),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 1.5,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          label: {
+            text: `${arrow} ${wp.current.windSpeed10m.toFixed(1)}m/s · ${label}`,
+            font: '10px monospace',
+            fillColor: CesiumLib.Color.fromCssColorString('#00B4FF'),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 2,
+            style: CesiumLib.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new CesiumLib.Cartesian2(0, -16),
+            verticalOrigin: CesiumLib.VerticalOrigin.BOTTOM,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+        })
+        weatherEntitiesRef.current.push(ent)
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady, activeLayers.weather, weatherPoints])
+
+  // ── Buoys ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+    const show = !!(activeLayers.buoys ?? false)
+    import('cesium').then(CesiumLib => {
+      if (viewer.isDestroyed()) return
+      for (const ent of buoyEntitiesRef.current) viewer.entities.remove(ent)
+      buoyEntitiesRef.current = []
+      if (!show || buoys.length === 0) return
+      for (const b of buoys) {
+        const sz = b.waveHeight !== null ? Math.max(5, Math.min(14, 5 + b.waveHeight * 1.2)) : 7
+        const ent = viewer.entities.add({
+          position: CesiumLib.Cartesian3.fromDegrees(b.lng, b.lat, 0),
+          point: {
+            pixelSize: sz,
+            color: CesiumLib.Color.fromCssColorString('#00B4FF'),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 1.5,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            heightReference: CesiumLib.HeightReference.CLAMP_TO_GROUND,
+          },
+          label: {
+            text: b.waveHeight !== null ? `${b.waveHeight.toFixed(1)}m` : b.id,
+            font: '9px monospace',
+            fillColor: CesiumLib.Color.fromCssColorString('#00B4FF'),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 2,
+            style: CesiumLib.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new CesiumLib.Cartesian2(0, -14),
+            verticalOrigin: CesiumLib.VerticalOrigin.BOTTOM,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+        })
+        buoyEntitiesRef.current.push(ent)
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady, activeLayers.buoys, buoys])
+
+  // ── OSM infrastructure ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+    const show = !!(activeLayers.osmInfra ?? false)
+    const COLOR_MAP: Record<string, string> = {
+      shelter: '#00FF88', school: '#FFB800', hospital: '#FF4444',
+      fuel: '#FFB800', police: '#FF4444', fire_station: '#FF4444',
+      bridge: '#607080', helipad: '#00B4FF', port: '#00B4FF',
+    }
+    import('cesium').then(CesiumLib => {
+      if (viewer.isDestroyed()) return
+      for (const ent of osmEntitiesRef.current) viewer.entities.remove(ent)
+      osmEntitiesRef.current = []
+      if (!show || osmFeatures.length === 0) return
+      for (const f of osmFeatures) {
+        const color = COLOR_MAP[f.kind] ?? '#607080'
+        const ent = viewer.entities.add({
+          position: CesiumLib.Cartesian3.fromDegrees(f.lng, f.lat, 10),
+          point: {
+            pixelSize: 7,
+            color: CesiumLib.Color.fromCssColorString(color),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 1.5,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            heightReference: CesiumLib.HeightReference.CLAMP_TO_GROUND,
+          },
+          label: {
+            text: f.name ?? f.kind,
+            font: '9px monospace',
+            fillColor: CesiumLib.Color.fromCssColorString(color),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 2,
+            style: CesiumLib.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new CesiumLib.Cartesian2(0, -14),
+            verticalOrigin: CesiumLib.VerticalOrigin.BOTTOM,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            scaleByDistance: new CesiumLib.NearFarScalar(1e3, 1.0, 5e5, 0.0),
+          },
+        })
+        osmEntitiesRef.current.push(ent)
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady, activeLayers.osmInfra, osmFeatures])
+
+  // ── Admin boundaries choropleth ───────────────────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+    const show = !!(activeLayers.population ?? false)
+    import('cesium').then(CesiumLib => {
+      if (viewer.isDestroyed()) return
+      for (const ent of adminEntitiesRef.current) viewer.entities.remove(ent)
+      adminEntitiesRef.current = []
+      if (!show || boundaries.length === 0) return
+      // Only render level-1 admin boundaries in 3D (less clutter)
+      const lvl1 = boundaries.filter(b => b.adminLevel === 1)
+      for (const b of lvl1) {
+        const pop = b.population ?? 0
+        const alpha = Math.min(0.55, 0.1 + pop / 10_000_000)
+        if (b.geometry.type !== 'Polygon' && b.geometry.type !== 'MultiPolygon') continue
+        const polys = b.geometry.type === 'Polygon'
+          ? [b.geometry.coordinates as number[][][]]
+          : (b.geometry.coordinates as number[][][][])
+        for (const poly of polys) {
+          const outer = poly[0]
+          if (!outer || outer.length < 3) continue
+          const positions = CesiumLib.Cartesian3.fromDegreesArray(outer.flat())
+          const ent = viewer.entities.add({
+            polygon: {
+              hierarchy: new CesiumLib.PolygonHierarchy(positions),
+              material: CesiumLib.Color.fromCssColorString('#FF4444').withAlpha(alpha),
+              outline: true,
+              outlineColor: CesiumLib.Color.fromCssColorString('#1A3A4A'),
+              outlineWidth: 1,
+              height: 0,
+            },
+          })
+          adminEntitiesRef.current.push(ent)
+        }
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady, activeLayers.population, boundaries])
+
+  // ── USAID disaster markers ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+    const show = !!(activeLayers.usaidDisasters ?? false)
+    import('cesium').then(CesiumLib => {
+      if (viewer.isDestroyed()) return
+      for (const ent of usaidEntitiesRef.current) viewer.entities.remove(ent)
+      usaidEntitiesRef.current = []
+      if (!show || usaidDeclarations.length === 0) return
+      for (const d of usaidDeclarations) {
+        if (d.lat === null || d.lng === null) continue
+        const color = d.status === 'active' ? '#00FF88' : '#607080'
+        const ent = viewer.entities.add({
+          position: CesiumLib.Cartesian3.fromDegrees(d.lng as number, d.lat as number, 0),
+          point: {
+            pixelSize: 10,
+            color: CesiumLib.Color.fromCssColorString(color),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 1.5,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            heightReference: CesiumLib.HeightReference.CLAMP_TO_GROUND,
+          },
+          label: {
+            text: d.disasterType,
+            font: '9px monospace',
+            fillColor: CesiumLib.Color.fromCssColorString(color),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 2,
+            style: CesiumLib.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new CesiumLib.Cartesian2(0, -16),
+            verticalOrigin: CesiumLib.VerticalOrigin.BOTTOM,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+        })
+        usaidEntitiesRef.current.push(ent)
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady, activeLayers.usaidDisasters, usaidDeclarations])
+
+  // ── UN OCHA FTS funding arcs ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+    const show = !!(activeLayers.funding ?? false)
+    const VEN_LNG = -66.6; const VEN_LAT = 8.0
+    import('cesium').then(CesiumLib => {
+      if (viewer.isDestroyed()) return
+      for (const ent of fundingEntitiesRef.current) viewer.entities.remove(ent)
+      fundingEntitiesRef.current = []
+      if (!show || ftsFlows.length === 0) return
+      const donors = topDonors(ftsFlows, 12)
+      for (const donor of donors) {
+        const pos = getDonorPosition(donor.org)
+        if (!pos) continue
+        const arcHeight = 3_000_000 // metres at arc apex
+        const ent = viewer.entities.add({
+          polyline: {
+            positions: new CesiumLib.CallbackProperty(() => {
+              // 20-point arc
+              const pts: CesiumCartesian3[] = []
+              for (let i = 0; i <= 20; i++) {
+                const t = i / 20
+                const lat = pos.lat + (VEN_LAT - pos.lat) * t
+                const lng = pos.lng + (VEN_LNG - pos.lng) * t
+                const h   = Math.sin(Math.PI * t) * arcHeight
+                pts.push(CesiumLib.Cartesian3.fromDegrees(lng, lat, h))
+              }
+              return pts
+            }, false),
+            width: Math.max(1, Math.log10(Math.max(1, donor.total)) * 0.4),
+            material: new CesiumLib.PolylineGlowMaterialProperty({
+              glowPower: 0.2,
+              color: CesiumLib.Color.fromCssColorString('#00FF88').withAlpha(0.6),
+            }),
+          },
+        })
+        fundingEntitiesRef.current.push(ent)
+
+        // Donor node
+        const node = viewer.entities.add({
+          position: CesiumLib.Cartesian3.fromDegrees(pos.lng, pos.lat, 0),
+          point: {
+            pixelSize: 7,
+            color: CesiumLib.Color.fromCssColorString('#00FF88'),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 1.5,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            heightReference: CesiumLib.HeightReference.CLAMP_TO_GROUND,
+          },
+          label: {
+            text: donor.org,
+            font: '9px monospace',
+            fillColor: CesiumLib.Color.fromCssColorString('#00FF88'),
+            outlineColor: CesiumLib.Color.BLACK,
+            outlineWidth: 2,
+            style: CesiumLib.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new CesiumLib.Cartesian2(0, -14),
+            verticalOrigin: CesiumLib.VerticalOrigin.BOTTOM,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+        })
+        fundingEntitiesRef.current.push(node)
+      }
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady, activeLayers.funding, ftsFlows])
 
   // ── FlyTo target (zone search / saved events) ─────────────────────────────
   useEffect(() => {

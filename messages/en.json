@@ -170,5 +170,66 @@
     "mapLoad": "Error loading map",
     "dataFetch": "Error fetching data",
     "aiError": "AI system error. Please try again."
+  },
+  "airports": {
+    "layer": "Airports",
+    "iata": "IATA",
+    "icao": "ICAO",
+    "country": "Country",
+    "click_info": "View flight info"
+  },
+  "weather": {
+    "layer": "Weather (Open-Meteo)",
+    "temp": "Temperature",
+    "wind_speed": "Wind speed",
+    "wind_dir": "Wind direction",
+    "gusts": "Gusts",
+    "precip": "Precipitation",
+    "cloud": "Cloud cover",
+    "visibility": "Visibility",
+    "condition": "Condition"
+  },
+  "buoys": {
+    "layer": "NOAA NDBC Buoys",
+    "wave_height": "Wave height",
+    "sea_temp": "Sea temperature",
+    "air_temp": "Air temperature",
+    "pressure": "Pressure",
+    "wind_speed": "Wind speed"
+  },
+  "osmInfra": {
+    "layer": "OSM Infrastructure",
+    "shelter": "Shelter",
+    "school": "School",
+    "hospital": "Hospital",
+    "fuel": "Fuel",
+    "police": "Police",
+    "fire_station": "Fire station",
+    "bridge": "Bridge",
+    "helipad": "Helipad",
+    "port": "Port",
+    "tags": "Tags"
+  },
+  "population": {
+    "layer": "Population / Admin Boundaries (HDX)",
+    "population": "Population",
+    "pcode": "P-code",
+    "admin_level": "Admin level"
+  },
+  "usaid": {
+    "layer": "USAID Disaster Declarations",
+    "disaster_type": "Disaster type",
+    "declaration_date": "Declaration date",
+    "status": "Status",
+    "funding": "Funding",
+    "active": "Active",
+    "closed": "Closed"
+  },
+  "funding": {
+    "layer": "UN OCHA FTS Funding Flows",
+    "organization": "Donor organization",
+    "total_usd": "Total USD",
+    "flows": "Flows",
+    "top_donors": "Top donors"
   }
 }

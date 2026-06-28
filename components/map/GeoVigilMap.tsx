@@ -6,6 +6,13 @@ import type { DateRange } from '@/components/map/controls/DateFilter'
 import type { SelectedMapObject } from '@/lib/types/map-selection'
 import type { FlightRoute } from '@/lib/airports'
 import type { AircraftState } from '@/lib/opensky'
+import type { AviationAirport } from '@/lib/aviationstack'
+import type { WeatherPoint } from '@/lib/open-meteo'
+import type { BuoyObservation } from '@/lib/ndbc'
+import type { OsmFeature, OsmRoad } from '@/lib/overpass'
+import type { AdminBoundary } from '@/lib/hdx'
+import type { UsaidDeclaration } from '@/lib/usaid'
+import type { FtsFlow } from '@/lib/fts'
 import MapDetailPanel from '@/components/panels/MapDetailPanel'
 import Scanlines from './overlays/Scanlines'
 import HUDCorners from './overlays/HUDCorners'
@@ -97,6 +104,14 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   const [flightRoute, setFlightRoute]       = useState<FlightRoute | null>(null)
   const [aircraft, setAircraft]             = useState<AircraftState[]>([])
   const [viewportBbox, setViewportBbox]     = useState<ViewportBbox | null>(null)
+  const [airports, setAirports]             = useState<AviationAirport[]>([])
+  const [weatherPts, setWeatherPts]         = useState<WeatherPoint[]>([])
+  const [buoys, setBuoys]                   = useState<BuoyObservation[]>([])
+  const [osmFeatures, setOsmFeatures]       = useState<OsmFeature[]>([])
+  const [osmRoads, setOsmRoads]             = useState<OsmRoad[]>([])
+  const [boundaries, setBoundaries]         = useState<(AdminBoundary & { population: number | null })[]>([])
+  const [usaidDecl, setUsaidDecl]           = useState<UsaidDeclaration[]>([])
+  const [ftsFlows, setFtsFlows]             = useState<FtsFlow[]>([])
   const onViewportChangeRef                 = useCallback((bbox: ViewportBbox) => {
     setViewportBbox(bbox)
     onViewportChange?.(bbox)
@@ -162,6 +177,99 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
       .catch(() => {})
   }, [selectedObject])
 
+  // Airports — load once on mount (30-day cache, static fallback)
+  useEffect(() => {
+    if (!activeLayers.airports) return
+    if (airports.length > 0) return
+    fetch('/api/aviation-airports')
+      .then(r => r.json())
+      .then((d: { airports: AviationAirport[] }) => setAirports(d.airports ?? []))
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayers.airports])
+
+  // Weather — re-fetch when layer toggled or viewport center changes
+  useEffect(() => {
+    if (!activeLayers.weather) { setWeatherPts([]); return }
+    const center = viewportBbox
+      ? { lat: (viewportBbox.minLat + viewportBbox.maxLat) / 2, lng: (viewportBbox.minLng + viewportBbox.maxLng) / 2 }
+      : getEvent(eventId).epicenter
+    fetch(`/api/weather?lat=${center.lat.toFixed(4)}&lng=${center.lng.toFixed(4)}&grid=1`)
+      .then(r => r.json())
+      .then((d: { points: WeatherPoint[] }) => setWeatherPts(d.points ?? []))
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayers.weather, viewportBbox, eventId])
+
+  // Buoys — load once when layer activated
+  useEffect(() => {
+    if (!activeLayers.buoys) return
+    if (buoys.length > 0) return
+    fetch('/api/buoys')
+      .then(r => r.json())
+      .then((d: { buoys: BuoyObservation[] }) => setBuoys(d.buoys ?? []))
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayers.buoys])
+
+  // OSM infrastructure — re-fetch on viewport change
+  useEffect(() => {
+    if (!activeLayers.osmInfra) { setOsmFeatures([]); setOsmRoads([]); return }
+    const bbox = viewportBbox
+      ? `${viewportBbox.minLng.toFixed(4)},${viewportBbox.minLat.toFixed(4)},${viewportBbox.maxLng.toFixed(4)},${viewportBbox.maxLat.toFixed(4)}`
+      : '-67.5,10.0,-66.0,11.5'
+    fetch(`/api/osm-infra?bbox=${bbox}&roads=1`)
+      .then(r => r.json())
+      .then((d: { features: OsmFeature[]; roads: OsmRoad[] }) => {
+        setOsmFeatures(d.features ?? [])
+        setOsmRoads(d.roads ?? [])
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayers.osmInfra, viewportBbox])
+
+  // Admin boundaries + population — load once
+  useEffect(() => {
+    if (!activeLayers.population) return
+    if (boundaries.length > 0) return
+    Promise.all([
+      fetch('/api/hdx?kind=admin').then(r => r.json()),
+      fetch('/api/hdx?kind=population').then(r => r.json()),
+    ])
+      .then(([adminData, popData]: [{ boundaries: AdminBoundary[] }, { stats: { pcode: string; population: number }[] }]) => {
+        const popMap = new Map((popData.stats ?? []).map((s: { pcode: string; population: number }) => [s.pcode, s.population]))
+        const merged = (adminData.boundaries ?? []).map((b: AdminBoundary) => ({
+          ...b,
+          population: popMap.get(b.pcode) ?? null,
+        }))
+        setBoundaries(merged)
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayers.population])
+
+  // USAID disaster declarations — load once
+  useEffect(() => {
+    if (!activeLayers.usaidDisasters) return
+    if (usaidDecl.length > 0) return
+    fetch('/api/usaid')
+      .then(r => r.json())
+      .then((d: { declarations: UsaidDeclaration[] }) => setUsaidDecl(d.declarations ?? []))
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayers.usaidDisasters])
+
+  // UN OCHA FTS funding flows — load once
+  useEffect(() => {
+    if (!activeLayers.funding) return
+    if (ftsFlows.length > 0) return
+    fetch('/api/fts')
+      .then(r => r.json())
+      .then((d: { flows: FtsFlow[] }) => setFtsFlows(d.flows ?? []))
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayers.funding])
+
   const epicenter                = getEvent(eventId).epicenter
   const selectedAircraftIcao24  = selectedObject?.type === 'aircraft' ? selectedObject.icao24 : null
 
@@ -192,6 +300,14 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
             aircraft={aircraft}
             flightRoute={flightRoute}
             selectedAircraftIcao24={selectedAircraftIcao24}
+            airports={airports}
+            weatherPoints={weatherPts}
+            buoys={buoys}
+            osmFeatures={osmFeatures}
+            osmRoads={osmRoads}
+            boundaries={boundaries}
+            usaidDeclarations={usaidDecl}
+            ftsFlows={ftsFlows}
           />
         </div>
 
@@ -210,6 +326,13 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
           flightRoute={flightRoute}
           selectedAircraftIcao24={selectedAircraftIcao24}
           flyTo={flyTo}
+          airports={airports}
+          weatherPoints={weatherPts}
+          buoys={buoys}
+          osmFeatures={osmFeatures}
+          boundaries={boundaries}
+          usaidDeclarations={usaidDecl}
+          ftsFlows={ftsFlows}
         />
       </div>
 

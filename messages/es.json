@@ -170,5 +170,66 @@
     "mapLoad": "Error cargando el mapa",
     "dataFetch": "Error obteniendo datos",
     "aiError": "Error del sistema de IA. Intenta de nuevo."
+  },
+  "airports": {
+    "layer": "Aeropuertos",
+    "iata": "IATA",
+    "icao": "ICAO",
+    "country": "País",
+    "click_info": "Ver información de vuelos"
+  },
+  "weather": {
+    "layer": "Meteorología (Open-Meteo)",
+    "temp": "Temperatura",
+    "wind_speed": "Viento",
+    "wind_dir": "Dirección",
+    "gusts": "Ráfagas",
+    "precip": "Precipitación",
+    "cloud": "Nubosidad",
+    "visibility": "Visibilidad",
+    "condition": "Condición"
+  },
+  "buoys": {
+    "layer": "Boyas NOAA NDBC",
+    "wave_height": "Altura de olas",
+    "sea_temp": "Temperatura del mar",
+    "air_temp": "Temperatura del aire",
+    "pressure": "Presión",
+    "wind_speed": "Viento"
+  },
+  "osmInfra": {
+    "layer": "Infraestructura OSM",
+    "shelter": "Refugio",
+    "school": "Escuela",
+    "hospital": "Hospital",
+    "fuel": "Combustible",
+    "police": "Policía",
+    "fire_station": "Bomberos",
+    "bridge": "Puente",
+    "helipad": "Helipuerto",
+    "port": "Puerto",
+    "tags": "Etiquetas"
+  },
+  "population": {
+    "layer": "Población / Límites Adm. (HDX)",
+    "population": "Población",
+    "pcode": "Código P",
+    "admin_level": "Nivel admin"
+  },
+  "usaid": {
+    "layer": "Declaraciones USAID",
+    "disaster_type": "Tipo de desastre",
+    "declaration_date": "Fecha de declaración",
+    "status": "Estado",
+    "funding": "Financiamiento",
+    "active": "Activo",
+    "closed": "Cerrado"
+  },
+  "funding": {
+    "layer": "Flujos de Financiamiento UN OCHA FTS",
+    "organization": "Organización donante",
+    "total_usd": "Total USD",
+    "flows": "Flujos",
+    "top_donors": "Principales donantes"
   }
 }

@@ -32,6 +32,20 @@ import EMSR884ProductsLayer from './layers/EMSR884ProductsLayer'
 import type { VtProductLayer } from '@/lib/emsr884'
 import type { FlightRoute } from '@/lib/airports'
 import FlightRouteLayer from './layers/FlightRouteLayer'
+import AirportsLayer from './layers/AirportsLayer'
+import WeatherLayer from './layers/WeatherLayer'
+import BuoysLayer from './layers/BuoysLayer'
+import InfraLayer from './layers/InfraLayer'
+import PopulationLayer from './layers/PopulationLayer'
+import UsaidLayer from './layers/UsaidLayer'
+import FundingFlowLayer from './layers/FundingFlowLayer'
+import type { AviationAirport } from '@/lib/aviationstack'
+import type { WeatherPoint } from '@/lib/open-meteo'
+import type { BuoyObservation } from '@/lib/ndbc'
+import type { OsmFeature, OsmRoad } from '@/lib/overpass'
+import type { AdminBoundary } from '@/lib/hdx'
+import type { UsaidDeclaration } from '@/lib/usaid'
+import type { FtsFlow } from '@/lib/fts'
 
 interface Earthquake {
   id: string
@@ -74,6 +88,14 @@ interface MapLibreMapProps {
   aircraft?: AircraftState[]
   flightRoute?: FlightRoute | null
   selectedAircraftIcao24?: string | null
+  airports?: AviationAirport[]
+  weatherPoints?: WeatherPoint[]
+  buoys?: BuoyObservation[]
+  osmFeatures?: OsmFeature[]
+  osmRoads?: OsmRoad[]
+  boundaries?: (AdminBoundary & { population: number | null })[]
+  usaidDeclarations?: UsaidDeclaration[]
+  ftsFlows?: FtsFlow[]
 }
 
 // Protomaps free tile style — no key required
@@ -99,6 +121,14 @@ export default function MapLibreMap({
   aircraft: aircraftProp = [],
   flightRoute,
   selectedAircraftIcao24,
+  airports = [],
+  weatherPoints = [],
+  buoys = [],
+  osmFeatures = [],
+  osmRoads = [],
+  boundaries = [],
+  usaidDeclarations = [],
+  ftsFlows = [],
 }: MapLibreMapProps) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const mapRef        = useRef<maplibregl.Map | null>(null)
@@ -546,6 +576,49 @@ export default function MapLibreMap({
               map={mapRef.current}
               vtLayers={vtLayers}
               visible={activeLayers.emsr884Products ?? false}
+            />
+            <AirportsLayer
+              map={mapRef.current}
+              airports={airports}
+              visible={activeLayers.airports ?? false}
+              onSelect={onSelectRef.current ?? undefined}
+            />
+            <WeatherLayer
+              map={mapRef.current}
+              points={weatherPoints}
+              visible={activeLayers.weather ?? false}
+              onSelect={onSelectRef.current ?? undefined}
+            />
+            <BuoysLayer
+              map={mapRef.current}
+              buoys={buoys}
+              visible={activeLayers.buoys ?? false}
+              onSelect={onSelectRef.current ?? undefined}
+            />
+            <InfraLayer
+              map={mapRef.current}
+              features={osmFeatures}
+              roads={osmRoads}
+              visible={activeLayers.osmInfra ?? false}
+              onSelect={onSelectRef.current ?? undefined}
+            />
+            <PopulationLayer
+              map={mapRef.current}
+              boundaries={boundaries}
+              visible={activeLayers.population ?? false}
+              onSelect={onSelectRef.current ?? undefined}
+            />
+            <UsaidLayer
+              map={mapRef.current}
+              declarations={usaidDeclarations}
+              visible={activeLayers.usaidDisasters ?? false}
+              onSelect={onSelectRef.current ?? undefined}
+            />
+            <FundingFlowLayer
+              map={mapRef.current}
+              flows={ftsFlows}
+              visible={activeLayers.funding ?? false}
+              onSelect={onSelectRef.current ?? undefined}
             />
           </>
         )}

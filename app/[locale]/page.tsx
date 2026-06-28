@@ -48,6 +48,12 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   emscSeismic:     false,
   emsr884:         false,
   emsr884Products: false,
+  airports:        false,
+  weather:         false,
+  buoys:           false,
+  osmInfra:        false,
+  usaidDisasters:  false,
+  funding:         false,
 }
 
 export default function DashboardPage({ params }: { params: { locale: string } }) {
