@@ -40,6 +40,14 @@ const streamColor = {
   system:  'var(--color-muted)',
 }
 
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-muted)', letterSpacing: '0.15em', marginBottom: '0.25rem' }}>
+      {children}
+    </div>
+  )
+}
+
 export default function StatsPanel({
   eventId,
   stats,
@@ -49,14 +57,12 @@ export default function StatsPanel({
   dataStream,
   onHospitalDetailOpen,
 }: StatsPanelProps) {
-  const streamRef = useRef<HTMLDivElement>(null)
-  const [hospitalOpen, setHospitalOpen] = useState(false)
+  const streamRef   = useRef<HTMLDivElement>(null)
+  const [hospitalOpen, setHospitalOpen]     = useState(false)
   const [hospitalCounts, setHospitalCounts] = useState<HospitalCounts | null>(null)
 
   useEffect(() => {
-    if (streamRef.current) {
-      streamRef.current.scrollTop = 0
-    }
+    if (streamRef.current) streamRef.current.scrollTop = 0
   }, [dataStream])
 
   useEffect(() => {
@@ -75,43 +81,47 @@ export default function StatsPanel({
 
   return (
     <div style={{
-      width: 240,
+      width: 272,
       height: '100%',
       backgroundColor: 'var(--color-panel)',
       borderRight: '1px solid var(--color-slate)',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
+      flexShrink: 0,
     }}>
-      {/* Event header */}
+
+      {/* ── Event header ─────────────────────────────────────────────── */}
       <div style={{ padding: '0.75rem', borderBottom: '1px solid var(--color-slate)' }}>
-        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', letterSpacing: '0.15em', marginBottom: '0.375rem' }}>
-          EVENTO ACTIVO
-        </div>
-        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.875rem', color: 'var(--color-green)', letterSpacing: '0.1em', marginBottom: '0.25rem' }}>
+        <Label>EVENTO ACTIVO</Label>
+        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '1rem', color: 'var(--color-green)', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
           {eventId}
         </div>
-        <div style={{ borderTop: '1px solid var(--color-slate)', marginTop: '0.5rem', paddingTop: '0.5rem' }}>
+
+        <div style={{ borderTop: '1px solid var(--color-slate)', paddingTop: '0.5rem' }}>
           {mainShocks.map((shock, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <PulseRing magnitude={shock.magnitude} size={12} />
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' }}>
+              <PulseRing magnitude={shock.magnitude} size={14} />
               <div>
-                <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.75rem', color: 'var(--color-red)', letterSpacing: '0.05em' }}>
+                <span style={{ fontFamily: 'var(--font-hud)', fontSize: '1rem', color: 'var(--color-red)', fontWeight: 700 }}>
                   M{shock.magnitude}
                 </span>
-                <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', marginLeft: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-muted)', marginLeft: '0.5rem' }}>
                   {shock.timeStr}
                 </span>
               </div>
             </div>
           ))}
-          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', marginTop: '0.25rem', lineHeight: 1.5 }}>
-            {location} · {faultSystem}
+          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-muted)', marginTop: '0.25rem', lineHeight: 1.6 }}>
+            {location}
+          </div>
+          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-muted)', marginTop: '0.125rem', lineHeight: 1.5 }}>
+            {faultSystem}
           </div>
         </div>
       </div>
 
-      {/* Stats bars */}
+      {/* ── Stats bars ────────────────────────────────────────────────── */}
       <div style={{ padding: '0.75rem', borderBottom: '1px solid var(--color-slate)' }}>
         <DataBar
           value={stats.fatalities}
@@ -135,46 +145,50 @@ export default function StatsPanel({
           color="cyan"
         />
 
-        <div style={{ marginTop: '0.5rem' }}>
-          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
-            ÚLTIMA RÉPLICA
+        <div style={{ marginTop: '0.625rem' }}>
+          <Label>ÚLTIMA RÉPLICA</Label>
+          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.8125rem', color: 'var(--color-text)', lineHeight: 1.5 }}>
+            M{stats.lastAftershock.magnitude.toFixed(1)}
+            <span style={{ color: 'var(--color-muted)', margin: '0 0.375rem' }}>·</span>
+            {stats.lastAftershock.place}
           </div>
-          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-text)' }}>
-            M{stats.lastAftershock.magnitude} · hace {stats.lastAftershock.hoursAgo}h · {stats.lastAftershock.place}
+          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-muted)', marginTop: '0.125rem' }}>
+            hace {stats.lastAftershock.hoursAgo}h
           </div>
         </div>
       </div>
 
-      {/* Data stream */}
+      {/* ── Data stream ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <div style={{
-          fontFamily: 'var(--font-hud)',
-          fontSize: '0.5rem',
-          color: 'var(--color-muted)',
-          letterSpacing: '0.15em',
-          padding: '0.5rem 0.75rem 0.25rem',
-        }}>
-          FLUJO DE DATOS
+        <div style={{ padding: '0.5rem 0.75rem 0.25rem', borderBottom: '1px solid rgba(26,58,74,0.5)' }}>
+          <Label>FLUJO DE DATOS EN VIVO</Label>
         </div>
         <div
           ref={streamRef}
-          style={{ flex: 1, overflowY: 'auto', padding: '0 0.75rem 0.75rem' }}
+          style={{ flex: 1, overflowY: 'auto', padding: '0.375rem 0.75rem 0.75rem' }}
         >
+          {dataStream.length === 0 && (
+            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-muted)', padding: '0.5rem 0' }}>
+              Esperando eventos...
+            </div>
+          )}
           {dataStream.map((item, i) => (
             <div key={i} style={{
               display: 'flex',
-              gap: '0.375rem',
-              marginBottom: '0.375rem',
-              alignItems: 'baseline',
+              gap: '0.5rem',
+              marginBottom: '0.5rem',
+              paddingBottom: '0.375rem',
+              borderBottom: '1px solid rgba(26,58,74,0.4)',
+              alignItems: 'flex-start',
             }}>
-              <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                &gt;
+              <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.75rem', color: streamColor[item.type], flexShrink: 0, lineHeight: 1.4 }}>
+                ›
               </span>
-              <div>
-                <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: streamColor[item.type] }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.75rem', color: streamColor[item.type], lineHeight: 1.4, wordBreak: 'break-word' }}>
                   {item.text}
-                </span>
-                <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.4375rem', color: 'var(--color-muted)' }}>
+                </div>
+                <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-muted)', marginTop: '0.125rem' }}>
                   {item.time}
                 </div>
               </div>
@@ -183,46 +197,48 @@ export default function StatsPanel({
         </div>
       </div>
 
-      {/* ── Hospitals section ─────────────────────────── */}
+      {/* ── Hospitals section ─────────────────────────────────────────── */}
       <div style={{ borderTop: '1px solid var(--color-slate)', flexShrink: 0 }}>
-        {/* Collapsible header */}
-        <div
-          role="button"
-          tabIndex={0}
+        <button
           onClick={() => setHospitalOpen(o => !o)}
-          onKeyDown={e => e.key === 'Enter' && setHospitalOpen(o => !o)}
           style={{
+            width: '100%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '0.5rem 0.75rem',
             cursor: 'pointer',
+            background: 'none',
+            border: 'none',
+            textAlign: 'left',
           }}
         >
-          <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', letterSpacing: '0.15em' }}>
-            HOSPITALES
+          <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-muted)', letterSpacing: '0.12em' }}>
+            ⊕ HOSPITALES
           </span>
-          <span style={{ color: 'var(--color-muted)', fontSize: '0.5rem' }}>
-            {hospitalOpen ? '▲' : '▼'}
-          </span>
-        </div>
+          {hospitalCounts && (
+            <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-muted)' }}>
+              {hospitalCounts.total} · {hospitalOpen ? '▲' : '▼'}
+            </span>
+          )}
+          {!hospitalCounts && (
+            <span style={{ fontSize: '0.5rem', color: 'var(--color-muted)' }}>{hospitalOpen ? '▲' : '▼'}</span>
+          )}
+        </button>
 
         {hospitalOpen && (
           <div style={{ padding: '0 0.75rem 0.75rem' }}>
             {hospitalCounts ? (
               <>
-                <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-text)', marginBottom: '0.25rem' }}>
-                  Total: {hospitalCounts.total}
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.375rem' }}>
-                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.45rem', color: 'var(--color-green)' }}>
-                    ● {hospitalCounts.green} VERDE
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-green)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <span>●</span> {hospitalCounts.green} op.
                   </span>
-                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.45rem', color: 'var(--color-amber)' }}>
-                    ● {hospitalCounts.amber} ÁMBAR
+                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-amber)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <span>●</span> {hospitalCounts.amber} limitado
                   </span>
-                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.45rem', color: 'var(--color-red)' }}>
-                    ● {hospitalCounts.red} ROJO
+                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-red)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <span>●</span> {hospitalCounts.red} crítico
                   </span>
                 </div>
                 {onHospitalDetailOpen && (
@@ -234,18 +250,18 @@ export default function StatsPanel({
                       color: 'var(--color-cyan)',
                       cursor: 'pointer',
                       fontFamily: 'var(--font-hud)',
-                      fontSize: '0.45rem',
+                      fontSize: '0.6875rem',
                       letterSpacing: '0.1em',
-                      padding: '2px 8px',
+                      padding: '0.25rem 0.5rem',
                       width: '100%',
                     }}
                   >
-                    VER DETALLE
+                    VER DETALLE HOSPITALES
                   </button>
                 )}
               </>
             ) : (
-              <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.45rem', color: 'var(--color-muted)' }}>
+              <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-muted)' }}>
                 CARGANDO...
               </div>
             )}

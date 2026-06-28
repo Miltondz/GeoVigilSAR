@@ -20,7 +20,7 @@ const SUGGESTED = [
 ]
 
 function buildWelcome(eventId: string) {
-  return `Listo. Evento ${eventId} cargado.\nFuentes activas: USGS, GDELT, ReliefWeb, Copernicus EMS.`
+  return `Sistema listo. Evento ${eventId} cargado.\nFuentes activas: USGS · GDELT · ReliefWeb · Copernicus EMS.`
 }
 
 interface NewsItem {
@@ -33,12 +33,12 @@ interface NewsItem {
 
 export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) {
   const welcomeContent = buildWelcome(eventId)
-  const [messages, setMessages] = useState<Message[]>([{ role: 'system', content: welcomeContent }])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [streamedText, setStreamedText] = useState('')
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const [newsItems, setNewsItems] = useState<NewsItem[]>([])
+  const [messages, setMessages]           = useState<Message[]>([{ role: 'system', content: welcomeContent }])
+  const [input, setInput]                 = useState('')
+  const [loading, setLoading]             = useState(false)
+  const [streamedText, setStreamedText]   = useState('')
+  const bottomRef                         = useRef<HTMLDivElement>(null)
+  const [newsItems, setNewsItems]         = useState<NewsItem[]>([])
 
   useEffect(() => {
     fetch(`/api/news?eventId=${eventId}&limit=10`)
@@ -65,11 +65,10 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
     setStreamedText('')
 
     if (!isConnected) {
-      // Phase 1: simulate response
       setTimeout(() => {
         setMessages(prev => [...prev, {
           role: 'system',
-          content: `[IA no conectada — OPENROUTER_API_KEY pendiente]\nModo demo: pregunta registrada.\nConecta OPENROUTER_API_KEY en .env.local para activar.`,
+          content: `[IA no conectada]\nConfigura OPENROUTER_API_KEY en .env.local para activar el asistente.`,
         }])
         setLoading(false)
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -83,7 +82,9 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
-          history: messages.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
+          history: messages
+            .filter(m => m.role !== 'system')
+            .map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
           context: { eventId },
         }),
       })
@@ -104,7 +105,7 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
       setMessages(prev => [...prev, { role: 'system', content: full }])
       setStreamedText('')
     } catch {
-      setMessages(prev => [...prev, { role: 'system', content: 'Error del sistema. Intenta de nuevo.' }])
+      setMessages(prev => [...prev, { role: 'system', content: 'Error de conexión. Intenta de nuevo.' }])
     } finally {
       setLoading(false)
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -113,58 +114,91 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
 
   return (
     <div style={{
-      width: 320,
+      width: 340,
       height: '100%',
       backgroundColor: 'var(--color-panel)',
       borderLeft: '1px solid var(--color-slate)',
       display: 'flex',
       flexDirection: 'column',
+      flexShrink: 0,
     }}>
+
       {/* Header */}
-      <div style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--color-slate)' }}>
-        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', letterSpacing: '0.15em' }}>
-          SISTEMA / SYSTEM
+      <div style={{ padding: '0.625rem 0.875rem', borderBottom: '1px solid var(--color-slate)', flexShrink: 0 }}>
+        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5625rem', color: 'var(--color-muted)', letterSpacing: '0.15em', marginBottom: '0.25rem' }}>
+          INTELIGENCIA ARTIFICIAL
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.125rem' }}>
-          <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-green)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.8125rem', color: 'var(--color-green)', letterSpacing: '0.06em' }}>
             GeoVigil Intelligence Core
           </span>
-          <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.4375rem', color: isConnected ? 'var(--color-green)' : 'var(--color-muted)' }}>
-            {isConnected ? '● ONLINE' : '○ DEMO'}
+          <span style={{
+            fontFamily: 'var(--font-hud)',
+            fontSize: '0.5625rem',
+            color: isConnected ? 'var(--color-green)' : 'var(--color-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.25rem',
+          }}>
+            <span style={{
+              display: 'inline-block',
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              backgroundColor: isConnected ? 'var(--color-green)' : 'var(--color-muted)',
+              boxShadow: isConnected ? '0 0 6px var(--color-green)' : 'none',
+            }} />
+            {isConnected ? 'ONLINE' : 'DEMO'}
           </span>
         </div>
-        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.4375rem', color: 'var(--color-muted)', marginTop: '0.125rem' }}>
+        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5625rem', color: 'var(--color-muted)', marginTop: '0.125rem' }}>
           Gemini 2.0 Flash · OpenRouter
         </div>
       </div>
 
       {/* Chat messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0.625rem 0.875rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
         {messages.map((msg, i) => (
-          <div key={i}>
-            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: msg.role === 'user' ? 'var(--color-cyan)' : 'var(--color-green)', marginBottom: '0.125rem', letterSpacing: '0.1em' }}>
-              {msg.role === 'user' ? 'USUARIO >' : 'SISTEMA >'}
+          <div key={i} style={{
+            borderLeft: `2px solid ${msg.role === 'user' ? 'var(--color-cyan)' : 'var(--color-green)'}`,
+            paddingLeft: '0.625rem',
+          }}>
+            <div style={{
+              fontFamily: 'var(--font-hud)',
+              fontSize: '0.5625rem',
+              color: msg.role === 'user' ? 'var(--color-cyan)' : 'var(--color-green)',
+              marginBottom: '0.25rem',
+              letterSpacing: '0.1em',
+            }}>
+              {msg.role === 'user' ? 'OPERADOR' : 'SISTEMA'}
             </div>
-            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-text)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+            <div style={{
+              fontFamily: 'var(--font-hud)',
+              fontSize: '0.8125rem',
+              color: 'var(--color-text)',
+              lineHeight: 1.65,
+              whiteSpace: 'pre-line',
+            }}>
               {msg.content}
             </div>
           </div>
         ))}
 
         {loading && streamedText && (
-          <div>
-            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-green)', marginBottom: '0.125rem', letterSpacing: '0.1em' }}>
-              SISTEMA &gt;
+          <div style={{ borderLeft: '2px solid var(--color-green)', paddingLeft: '0.625rem' }}>
+            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5625rem', color: 'var(--color-green)', marginBottom: '0.25rem', letterSpacing: '0.1em' }}>
+              SISTEMA
             </div>
-            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-text)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.8125rem', color: 'var(--color-text)', lineHeight: 1.65, whiteSpace: 'pre-line' }}>
               {streamedText}
             </div>
           </div>
         )}
 
         {loading && !streamedText && (
-          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-muted)' }}>
-            SISTEMA &gt; <span className="hud-cursor" />
+          <div style={{ borderLeft: '2px solid var(--color-green)', paddingLeft: '0.625rem' }}>
+            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5625rem', color: 'var(--color-green)', marginBottom: '0.25rem', letterSpacing: '0.1em' }}>SISTEMA</div>
+            <span style={{ color: 'var(--color-green)', animation: 'blink 1s step-end infinite' }}>▮</span>
           </div>
         )}
 
@@ -172,30 +206,52 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
       </div>
 
       {/* Suggested queries */}
-      <div style={{ padding: '0.375rem 0.75rem', borderTop: '1px solid var(--color-slate)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+      <div style={{ padding: '0.5rem 0.875rem', borderTop: '1px solid var(--color-slate)', display: 'flex', flexDirection: 'column', gap: '0.25rem', flexShrink: 0 }}>
+        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5625rem', color: 'var(--color-muted)', letterSpacing: '0.12em', marginBottom: '0.125rem' }}>
+          CONSULTAS RÁPIDAS
+        </div>
         {SUGGESTED.map(q => (
-          <button key={q} onClick={() => send(q)} style={{
-            textAlign: 'left',
-            background: 'none',
-            border: '1px solid var(--color-slate)',
-            padding: '0.2rem 0.5rem',
-            cursor: 'pointer',
-            fontFamily: 'var(--font-hud)',
-            fontSize: '0.5rem',
-            color: 'var(--color-muted)',
-            transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { (e.target as HTMLButtonElement).style.color = 'var(--color-green)'; (e.target as HTMLButtonElement).style.borderColor = 'var(--color-green)' }}
-          onMouseLeave={e => { (e.target as HTMLButtonElement).style.color = 'var(--color-muted)'; (e.target as HTMLButtonElement).style.borderColor = 'var(--color-slate)' }}
+          <button
+            key={q}
+            onClick={() => send(q)}
+            disabled={loading}
+            style={{
+              textAlign: 'left',
+              background: 'none',
+              border: '1px solid var(--color-slate)',
+              padding: '0.3125rem 0.625rem',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-hud)',
+              fontSize: '0.6875rem',
+              color: 'var(--color-muted)',
+              transition: 'all 0.15s',
+              opacity: loading ? 0.4 : 1,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = 'var(--color-green)'
+              e.currentTarget.style.borderColor = 'var(--color-green)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = 'var(--color-muted)'
+              e.currentTarget.style.borderColor = 'var(--color-slate)'
+            }}
           >
-            &gt; {q}
+            › {q}
           </button>
         ))}
       </div>
 
       {/* Input */}
-      <div style={{ padding: '0.5rem 0.75rem', borderTop: '1px solid var(--color-slate)', display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
-        <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-cyan)' }}>&gt;</span>
+      <div style={{
+        padding: '0.5rem 0.875rem',
+        borderTop: '1px solid var(--color-slate)',
+        display: 'flex',
+        gap: '0.5rem',
+        alignItems: 'center',
+        flexShrink: 0,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+      }}>
+        <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.875rem', color: 'var(--color-cyan)', flexShrink: 0 }}>›</span>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
@@ -208,7 +264,7 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
             border: 'none',
             outline: 'none',
             fontFamily: 'var(--font-hud)',
-            fontSize: '0.625rem',
+            fontSize: '0.8125rem',
             color: 'var(--color-text)',
             caretColor: 'var(--color-green)',
           }}
@@ -221,10 +277,11 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
             border: '1px solid var(--color-green)',
             color: 'var(--color-green)',
             fontFamily: 'var(--font-hud)',
-            fontSize: '0.5rem',
-            padding: '0.125rem 0.375rem',
+            fontSize: '0.75rem',
+            padding: '0.1875rem 0.5rem',
             cursor: 'pointer',
             opacity: loading || !input.trim() ? 0.3 : 1,
+            transition: 'opacity 0.15s',
           }}
         >
           ↵
@@ -232,7 +289,15 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
       </div>
 
       {/* News stream */}
-      <div style={{ height: '35%', minHeight: 120, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--color-slate)' }}>
+      <div style={{
+        height: '30%',
+        minHeight: 100,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        borderTop: '1px solid var(--color-slate)',
+        flexShrink: 0,
+      }}>
         <NewsStream items={newsItems} />
       </div>
     </div>
