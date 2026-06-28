@@ -36,8 +36,12 @@ export default function ZoneAnalyzeButton({ viewportBbox, onSnapshot, hasSnapsho
     setLoading(true)
     try {
       const params = new URLSearchParams({
-        lat: centerLat.toFixed(4),
-        lng: centerLng.toFixed(4),
+        lat:    centerLat.toFixed(4),
+        lng:    centerLng.toFixed(4),
+        minLat: minLat.toFixed(4),
+        maxLat: maxLat.toFixed(4),
+        minLng: minLng.toFixed(4),
+        maxLng: maxLng.toFixed(4),
       })
       const res = await fetch(`/api/zone-analyze?${params.toString()}`)
       if (!res.ok) throw new Error('fetch failed')
@@ -45,8 +49,10 @@ export default function ZoneAnalyzeButton({ viewportBbox, onSnapshot, hasSnapsho
 
       const snap = setCachedZone(minLat, maxLat, minLng, maxLng, {
         zone:      data.zone,
-        news:      data.news     ?? [],
-        reports:   data.reports  ?? [],
+        news:      data.news      ?? [],
+        reports:   data.reports   ?? [],
+        images:    data.images    ?? [],
+        aiExtract: data.aiExtract ?? null,
         fetchedAt: data.fetchedAt ?? Date.now(),
       })
       onSnapshot(snap)

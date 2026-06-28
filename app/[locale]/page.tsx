@@ -14,6 +14,7 @@ import DataSourcesPanel from '@/components/panels/DataSourcesPanel'
 import SystemHealthModal from '@/components/ui/SystemHealthModal'
 import EMSR884Panel from '@/components/panels/EMSR884Panel'
 import SavedEventsPanel from '@/components/panels/SavedEventsPanel'
+import ZoneAnalysisPanel from '@/components/panels/ZoneAnalysisPanel'
 import type { SavedEvent } from '@/lib/saved-events'
 import type { ZoneSnapshot } from '@/lib/zone-cache'
 import { getEvent } from '@/lib/events/index'
@@ -61,6 +62,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [emsr884PanelOpen, setEmsr884PanelOpen]         = useState(false)
   const [savedEventsPanelOpen, setSavedEventsPanelOpen] = useState(false)
   const [zoneSnapshot, setZoneSnapshot]                 = useState<ZoneSnapshot | null>(null)
+  const [zoneDetailOpen, setZoneDetailOpen]             = useState(false)
   const [mapTarget, setMapTarget] = useState<{ lat: number; lng: number; name: string } | null>(null)
   const [liveEarthquakes, setLiveEarthquakes] = useState<{
     id: string; magnitude: number; depth: number; lat: number; lng: number
@@ -128,6 +130,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
 
   const handleZoneSnapshot = useCallback((snap: ZoneSnapshot) => {
     setZoneSnapshot(snap)
+    setZoneDetailOpen(true)    // auto-open detail panel on new snapshot
   }, [])
 
   const handleViewportChange = useCallback((bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => {
@@ -226,7 +229,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
           dataStream={dataStream}
           onHospitalDetailOpen={() => setHospitalPanelOpen(true)}
           zoneSnapshot={zoneSnapshot}
-          onClearZone={() => setZoneSnapshot(null)}
+          onClearZone={() => { setZoneSnapshot(null); setZoneDetailOpen(false) }}
+          onViewZoneDetail={() => setZoneDetailOpen(true)}
         />
 
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -265,6 +269,12 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         visible={savedEventsPanelOpen}
         onClose={() => setSavedEventsPanelOpen(false)}
         onSelect={handleSavedEventSelect}
+      />
+
+      <ZoneAnalysisPanel
+        visible={zoneDetailOpen}
+        snapshot={zoneSnapshot}
+        onClose={() => setZoneDetailOpen(false)}
       />
 
       <HospitalStatusPanel

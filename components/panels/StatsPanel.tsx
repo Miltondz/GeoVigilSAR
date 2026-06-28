@@ -35,6 +35,7 @@ interface StatsPanelProps {
   onHospitalDetailOpen?: () => void
   zoneSnapshot?: ZoneSnapshot | null
   onClearZone?: () => void
+  onViewZoneDetail?: () => void
 }
 
 const streamColor = {
@@ -61,6 +62,7 @@ export default function StatsPanel({
   onHospitalDetailOpen,
   zoneSnapshot,
   onClearZone,
+  onViewZoneDetail,
 }: StatsPanelProps) {
   const streamRef   = useRef<HTMLDivElement>(null)
   const [hospitalOpen, setHospitalOpen]     = useState(false)
@@ -307,6 +309,81 @@ export default function StatsPanel({
                     </a>
                   ))}
                 </div>
+              )}
+
+              {/* AI first key fact */}
+              {zoneSnapshot.aiExtract?.keyFacts?.[0] && (
+                <div style={{
+                  fontFamily:   'var(--font-hud)',
+                  fontSize:     '0.625rem',
+                  color:        'var(--color-text)',
+                  lineHeight:    1.5,
+                  marginBottom: '0.5rem',
+                  paddingLeft:  '0.5rem',
+                  borderLeft:   '2px solid var(--color-cyan)',
+                }}>
+                  {zoneSnapshot.aiExtract.keyFacts[0]}
+                </div>
+              )}
+
+              {/* AI casualties compact */}
+              {zoneSnapshot.aiExtract?.casualties && Object.keys(zoneSnapshot.aiExtract.casualties).length > 0 && (
+                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                  {zoneSnapshot.aiExtract.casualties.dead != null && (
+                    <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-red)' }}>
+                      {zoneSnapshot.aiExtract.casualties.dead}†
+                    </span>
+                  )}
+                  {zoneSnapshot.aiExtract.casualties.injured != null && (
+                    <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-amber)' }}>
+                      {zoneSnapshot.aiExtract.casualties.injured.toLocaleString()}⚕
+                    </span>
+                  )}
+                  {zoneSnapshot.aiExtract.casualties.displaced != null && (
+                    <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-muted)' }}>
+                      {zoneSnapshot.aiExtract.casualties.displaced.toLocaleString()}↔
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Data counts */}
+              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                {zoneSnapshot.news.length > 0 && (
+                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)' }}>
+                    {zoneSnapshot.news.length} noticias
+                  </span>
+                )}
+                {zoneSnapshot.reports.length > 0 && (
+                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)' }}>
+                    {zoneSnapshot.reports.length} reportes
+                  </span>
+                )}
+                {zoneSnapshot.images.length > 0 && (
+                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)' }}>
+                    {zoneSnapshot.images.length} imágenes
+                  </span>
+                )}
+              </div>
+
+              {/* View detail button */}
+              {onViewZoneDetail && (
+                <button
+                  onClick={onViewZoneDetail}
+                  style={{
+                    width:         '100%',
+                    background:    'none',
+                    border:        '1px solid var(--color-cyan)',
+                    color:         'var(--color-cyan)',
+                    cursor:        'pointer',
+                    fontFamily:    'var(--font-hud)',
+                    fontSize:      '0.5625rem',
+                    letterSpacing: '0.15em',
+                    padding:       '0.25rem 0.5rem',
+                  }}
+                >
+                  VER ANÁLISIS COMPLETO ▶
+                </button>
               )}
 
               {zoneSnapshot.news.length === 0 && zoneSnapshot.reports.length === 0 && (

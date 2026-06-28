@@ -1,5 +1,7 @@
 import type { NewsItem } from '@/lib/gdelt'
 import type { ReliefReport } from '@/lib/reliefweb'
+import type { ZoneImage } from '@/lib/imagery'
+import type { ZoneAIExtract } from '@/lib/zone-ai-extract'
 
 export interface ZoneInfo {
   country:      string
@@ -11,8 +13,10 @@ export interface ZoneInfo {
 export interface ZoneSnapshot {
   bboxHash:  string
   zone:      ZoneInfo
-  news:      NewsItem[]
+  news:      NewsItem[]        // GDELT + RSS combined
   reports:   ReliefReport[]
+  images:    ZoneImage[]       // Mapillary + Wikimedia + NASA GIBS
+  aiExtract: ZoneAIExtract | null
   fetchedAt: number
 }
 
@@ -59,7 +63,7 @@ export function getCachedZone(
 
 export function setCachedZone(
   minLat: number, maxLat: number, minLng: number, maxLng: number,
-  snapshot: Omit<ZoneSnapshot, 'bboxHash'>
+  snapshot: Omit<ZoneSnapshot, 'bboxHash'> & { images?: ZoneImage[]; aiExtract?: ZoneAIExtract | null }
 ): ZoneSnapshot {
   const key   = bboxHash(minLat, maxLat, minLng, maxLng)
   const entry = { ...snapshot, bboxHash: key }
