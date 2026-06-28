@@ -15,6 +15,8 @@ import VisionModeControl from './controls/VisionModeControl'
 import type { VisionMode } from './overlays/VisionModeOverlay'
 import type { EarthquakeMarker } from './Cesium3DGlobe'
 import type { DamagePoint } from '@/lib/events/ven-2406'
+import ZoneAnalyzeButton from './controls/ZoneAnalyzeButton'
+import type { ZoneSnapshot } from '@/lib/zone-cache'
 
 // MapLibre requires client-only — no SSR
 const MapLibreMap = dynamic(() => import('./MapLibreMap'), {
@@ -54,11 +56,13 @@ interface GeoVigilMapProps {
   eventId: string
   onEarthquakesLoaded?: (earthquakes: Earthquake[]) => void
   onViewportChange?: (bbox: ViewportBbox) => void
+  onZoneSnapshot?: (snapshot: ZoneSnapshot) => void
   timelinePhase?: 'pre' | 'main' | 'post'
   timelineMs?: number
   flyTo?: FlyToTarget | null
   damagePoints?: DamagePoint[]
   dateFilter?: DateRange
+  currentZoneSnapshot?: ZoneSnapshot | null
 }
 
 function MapPlaceholder() {
@@ -83,7 +87,7 @@ function toMarker(eq: Earthquake): EarthquakeMarker {
   return { id: eq.id, magnitude: eq.magnitude, lat: eq.lat, lng: eq.lng, depth: eq.depth, place: eq.place, time: eq.time }
 }
 
-export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, onViewportChange, timelinePhase, timelineMs, flyTo, damagePoints = [], dateFilter }: GeoVigilMapProps) {
+export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, onViewportChange, onZoneSnapshot, timelinePhase, timelineMs, flyTo, damagePoints = [], dateFilter, currentZoneSnapshot }: GeoVigilMapProps) {
   const [earthquakes, setEarthquakes]       = useState<Earthquake[]>([])
   const [lastFetch, setLastFetch]           = useState(0)
   const [viewMode, setViewMode]             = useState<'2d' | '3d'>('3d')
@@ -232,23 +236,36 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
         <ViewModeToggle mode={viewMode} onChange={setViewMode} />
       </div>
 
-      {/* Aftershock count badge */}
-      {earthquakes.length > 0 && (
-        <div style={{
-          position: 'absolute',
-          bottom: 8,
-          left: 8,
-          backgroundColor: 'rgba(0,10,15,0.85)',
-          border: '1px solid var(--color-slate)',
-          padding: '0.25rem 0.5rem',
-          zIndex: 25,
-          pointerEvents: 'none',
-        }}>
-          <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-cyan)', letterSpacing: '0.1em' }}>
-            USGS LIVE · {earthquakes.length} sismos · {lastFetch ? new Date(lastFetch).toISOString().slice(11, 19) + ' UTC' : '—'}
-          </span>
-        </div>
-      )}
+      {/* Bottom-left: USGS badge + zone analyze button */}
+      <div style={{
+        position: 'absolute',
+        bottom: 8,
+        left: 8,
+        zIndex: 25,
+        display: 'flex',
+        gap: 6,
+        alignItems: 'center',
+        pointerEvents: 'none',
+      }}>
+        {earthquakes.length > 0 && (
+          <div style={{
+            backgroundColor: 'rgba(0,10,15,0.85)',
+            border: '1px solid var(--color-slate)',
+            padding: '0.25rem 0.5rem',
+            backdropFilter: 'blur(4px)',
+          }}>
+            <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-cyan)', letterSpacing: '0.1em' }}>
+              USGS LIVE · {earthquakes.length} sismos · {lastFetch ? new Date(lastFetch).toISOString().slice(11, 19) + ' UTC' : '—'}
+            </span>
+          </div>
+        )}
+        <ZoneAnalyzeButton
+          viewportBbox={viewportBbox}
+          onSnapshot={onZoneSnapshot ?? (() => {})}
+          hasSnapshot={!!currentZoneSnapshot}
+          snapshotAge={currentZoneSnapshot ? Date.now() - currentZoneSnapshot.fetchedAt : undefined}
+        />
+      </div>
     </div>
   )
 }

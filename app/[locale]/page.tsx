@@ -15,6 +15,7 @@ import SystemHealthModal from '@/components/ui/SystemHealthModal'
 import EMSR884Panel from '@/components/panels/EMSR884Panel'
 import SavedEventsPanel from '@/components/panels/SavedEventsPanel'
 import type { SavedEvent } from '@/lib/saved-events'
+import type { ZoneSnapshot } from '@/lib/zone-cache'
 import { getEvent } from '@/lib/events/index'
 
 const DEFAULT_LAYERS: Record<string, boolean> = {
@@ -59,6 +60,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [systemHealthOpen, setSystemHealthOpen] = useState(true)
   const [emsr884PanelOpen, setEmsr884PanelOpen]         = useState(false)
   const [savedEventsPanelOpen, setSavedEventsPanelOpen] = useState(false)
+  const [zoneSnapshot, setZoneSnapshot]                 = useState<ZoneSnapshot | null>(null)
   const [mapTarget, setMapTarget] = useState<{ lat: number; lng: number; name: string } | null>(null)
   const [liveEarthquakes, setLiveEarthquakes] = useState<{
     id: string; magnitude: number; depth: number; lat: number; lng: number
@@ -120,6 +122,12 @@ export default function DashboardPage({ params }: { params: { locale: string } }
       setDateFilter({ start: evDate, end: todayStr })
     }
     setSavedEventsPanelOpen(false)
+    // Clear zone snapshot when switching to a saved event
+    setZoneSnapshot(null)
+  }, [])
+
+  const handleZoneSnapshot = useCallback((snap: ZoneSnapshot) => {
+    setZoneSnapshot(snap)
   }, [])
 
   const handleViewportChange = useCallback((bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => {
@@ -217,6 +225,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
           faultSystem={event.faultSystem}
           dataStream={dataStream}
           onHospitalDetailOpen={() => setHospitalPanelOpen(true)}
+          zoneSnapshot={zoneSnapshot}
+          onClearZone={() => setZoneSnapshot(null)}
         />
 
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -225,6 +235,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
             eventId={activeEventId}
             onEarthquakesLoaded={setLiveEarthquakes}
             onViewportChange={handleViewportChange}
+            onZoneSnapshot={handleZoneSnapshot}
+            currentZoneSnapshot={zoneSnapshot}
             timelinePhase={timelinePhase}
             timelineMs={timelineMs}
             flyTo={mapTarget}

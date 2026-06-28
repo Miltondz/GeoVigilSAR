@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import DataBar from '@/components/ui/DataBar'
 import PulseRing from '@/components/ui/PulseRing'
+import type { ZoneSnapshot } from '@/lib/zone-cache'
 
 interface HospitalCounts {
   total: number
@@ -32,6 +33,8 @@ interface StatsPanelProps {
   faultSystem: string
   dataStream: StreamItem[]
   onHospitalDetailOpen?: () => void
+  zoneSnapshot?: ZoneSnapshot | null
+  onClearZone?: () => void
 }
 
 const streamColor = {
@@ -56,10 +59,13 @@ export default function StatsPanel({
   faultSystem,
   dataStream,
   onHospitalDetailOpen,
+  zoneSnapshot,
+  onClearZone,
 }: StatsPanelProps) {
   const streamRef   = useRef<HTMLDivElement>(null)
   const [hospitalOpen, setHospitalOpen]     = useState(false)
   const [hospitalCounts, setHospitalCounts] = useState<HospitalCounts | null>(null)
+  const [zoneOpen, setZoneOpen]             = useState(true)
 
   useEffect(() => {
     if (streamRef.current) streamRef.current.scrollTop = 0
@@ -196,6 +202,122 @@ export default function StatsPanel({
           ))}
         </div>
       </div>
+
+      {/* ── Zone snapshot section ────────────────────────────────────── */}
+      {zoneSnapshot && (
+        <div style={{ borderTop: '1px solid var(--color-slate)', flexShrink: 0 }}>
+          <button
+            onClick={() => setZoneOpen(o => !o)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.5rem 0.75rem',
+              cursor: 'pointer',
+              background: 'none',
+              border: 'none',
+              textAlign: 'left',
+            }}
+          >
+            <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-cyan)', letterSpacing: '0.12em' }}>
+              ⊕ {zoneSnapshot.zone.country.toUpperCase()}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)' }}>
+                {Math.floor((Date.now() - zoneSnapshot.fetchedAt) / 60000)}min
+              </span>
+              <button
+                onClick={e => { e.stopPropagation(); onClearZone?.() }}
+                style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '0.625rem', padding: 0, lineHeight: 1 }}
+                title="Limpiar datos de zona"
+              >
+                ✕
+              </button>
+              <span style={{ fontSize: '0.5rem', color: 'var(--color-muted)' }}>{zoneOpen ? '▲' : '▼'}</span>
+            </div>
+          </button>
+
+          {zoneOpen && (
+            <div style={{ padding: '0 0.75rem 0.75rem', maxHeight: 220, overflowY: 'auto' }}>
+
+              {/* Reports */}
+              {zoneSnapshot.reports.length > 0 && (
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', letterSpacing: '0.15em', marginBottom: '0.375rem' }}>
+                    REPORTES HUMANITARIOS · {zoneSnapshot.reports.length}
+                  </div>
+                  {zoneSnapshot.reports.slice(0, 3).map(r => (
+                    <a
+                      key={r.id}
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'block',
+                        fontFamily: 'var(--font-hud)',
+                        fontSize: '0.625rem',
+                        color: 'var(--color-text)',
+                        textDecoration: 'none',
+                        lineHeight: 1.4,
+                        marginBottom: '0.375rem',
+                        paddingBottom: '0.375rem',
+                        borderBottom: '1px solid rgba(26,58,74,0.4)',
+                      }}
+                    >
+                      <span style={{ color: 'var(--color-red)' }}>⊕ </span>
+                      {r.title}
+                      <div style={{ color: 'var(--color-muted)', fontSize: '0.5rem', marginTop: '0.125rem' }}>
+                        {r.source} · {new Date(r.publishedAt).toISOString().slice(0, 10)}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {/* News */}
+              {zoneSnapshot.news.length > 0 && (
+                <div>
+                  <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', letterSpacing: '0.15em', marginBottom: '0.375rem' }}>
+                    NOTICIAS · {zoneSnapshot.news.length}
+                  </div>
+                  {zoneSnapshot.news.slice(0, 5).map((n, i) => (
+                    <a
+                      key={i}
+                      href={n.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'block',
+                        fontFamily: 'var(--font-hud)',
+                        fontSize: '0.625rem',
+                        color: 'var(--color-text)',
+                        textDecoration: 'none',
+                        lineHeight: 1.4,
+                        marginBottom: '0.375rem',
+                        paddingBottom: '0.375rem',
+                        borderBottom: '1px solid rgba(26,58,74,0.4)',
+                      }}
+                    >
+                      <span style={{ color: 'var(--color-cyan)' }}>› </span>
+                      {n.title}
+                      <div style={{ color: 'var(--color-muted)', fontSize: '0.5rem', marginTop: '0.125rem' }}>
+                        {n.source} · {new Date(n.publishedAt).toISOString().slice(0, 10)}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              {zoneSnapshot.news.length === 0 && zoneSnapshot.reports.length === 0 && (
+                <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-muted)', padding: '0.5rem 0' }}>
+                  Sin datos para esta zona.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Hospitals section ─────────────────────────────────────────── */}
       <div style={{ borderTop: '1px solid var(--color-slate)', flexShrink: 0 }}>

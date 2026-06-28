@@ -1,16 +1,18 @@
 export interface SavedEvent {
-  id:       string
-  label:    string
-  place:    string
-  lat:      number
-  lng:      number
-  magnitude:number
-  depth:    number
-  time:     number    // ms UTC
-  eventId?: string    // registered event key (VEN-2406, TUR-2302…)
-  pinned:   boolean
-  archived: boolean
-  savedAt:  number    // ms UTC — when user saved it
+  id:           string
+  label:        string
+  place:        string
+  lat:          number
+  lng:          number
+  magnitude:    number
+  depth:        number
+  time:         number    // ms UTC
+  eventId?:     string    // registered event key (VEN-2406, TUR-2302…)
+  pinned:       boolean
+  archived:     boolean
+  savedAt:      number    // ms UTC — when user saved it
+  zoneCountry?: string    // from zone snapshot at save time
+  zoneBboxHash?:string    // key to look up cached zone data
 }
 
 const STORAGE_KEY = 'geovigil:saved-events:v1'
