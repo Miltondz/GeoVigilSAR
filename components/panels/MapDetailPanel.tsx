@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useRef } from 'react'
 import type { SelectedMapObject } from '@/lib/types/map-selection'
+import type { FlightRoute, FlightAirport } from '@/lib/airports'
+import { countryFlag } from '@/lib/country-flags'
+import { AircraftSilhouette, categoryLabel } from '@/lib/aircraft-silhouettes'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -22,6 +25,7 @@ interface MapDetailPanelProps {
   object: SelectedMapObject | null
   onClose: () => void
   eventId: string
+  flightRoute?: FlightRoute | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -182,7 +186,25 @@ function ImagesSection({ lat, lng }: { lat: number; lng: number }) {
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
 
-export default function MapDetailPanel({ object, onClose, eventId }: MapDetailPanelProps) {
+function AirportBadge({ ap, role }: { ap: FlightAirport; role: 'DEP' | 'ARR' }) {
+  const color = role === 'DEP' ? 'var(--color-green)' : 'var(--color-amber)'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.375rem', border: `1px solid ${color}` }}>
+      <span style={{ fontSize: '1rem', lineHeight: 1 }}>{countryFlag(ap.country)}</span>
+      <div>
+        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color, fontWeight: 700 }}>
+          {ap.iata ?? ap.icao}
+          <span style={{ fontWeight: 400, marginLeft: 4, fontSize: '0.4375rem', color: 'var(--color-muted)', letterSpacing: '0.1em' }}>{role}</span>
+        </div>
+        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.4375rem', color: 'var(--color-muted)' }}>
+          {ap.city}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function MapDetailPanel({ object, onClose, eventId, flightRoute }: MapDetailPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null)
 
   // Close on Escape
@@ -423,9 +445,58 @@ export default function MapDetailPanel({ object, onClose, eventId }: MapDetailPa
             const ago     = Math.round((Date.now() / 1000 - ac.lastContact))
             return (
               <>
+                {/* ── Silhouette + type row ────────────────────────── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.375rem 0', borderTop: '1px solid var(--color-slate)', borderBottom: '1px solid var(--color-slate)' }}>
+                  <div style={{ flexShrink: 0 }}>
+                    <AircraftSilhouette category={ac.category} size={52} color="var(--color-cyan)" />
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', letterSpacing: '0.1em', marginBottom: 4 }}>TIPO AERONAVE</div>
+                    <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5625rem', color: 'var(--color-text)', fontWeight: 600 }}>
+                      {flightRoute?.model ?? categoryLabel(ac.category)}
+                    </div>
+                    {flightRoute?.aircraftType && (
+                      <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.4375rem', color: 'var(--color-cyan)', marginTop: 2, letterSpacing: '0.12em' }}>
+                        ICAO: {flightRoute.aircraftType}
+                        {flightRoute.registration && ` · REG: ${flightRoute.registration}`}
+                      </div>
+                    )}
+                    {flightRoute?.operator && (
+                      <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.4375rem', color: 'var(--color-muted)', marginTop: 2 }}>
+                        {flightRoute.operator}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Origin/destination flag row ───────────────────── */}
+                <div>
+                  <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.4375rem', color: 'var(--color-muted)', letterSpacing: '0.15em', marginBottom: '0.375rem' }}>
+                    RUTA DE VUELO
+                  </div>
+                  {(flightRoute?.departure || flightRoute?.arrival) ? (
+                    <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'stretch' }}>
+                      {flightRoute?.departure && <AirportBadge ap={flightRoute.departure} role="DEP" />}
+                      {flightRoute?.departure && flightRoute?.arrival && (
+                        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.75rem', color: 'var(--color-muted)', alignSelf: 'center', padding: '0 0.125rem' }}>→</div>
+                      )}
+                      {flightRoute?.arrival && <AirportBadge ap={flightRoute.arrival} role="ARR" />}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '1.125rem' }}>{countryFlag(ac.originCountry)}</span>
+                      <div>
+                        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-text)' }}>{ac.originCountry}</div>
+                        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.4375rem', color: 'var(--color-muted)' }}>País de matrícula</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Flight data grid ─────────────────────────────── */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
-                  <MetaCell label="VUELO"       value={ac.callsign}   accent="var(--color-cyan)" />
                   <MetaCell label="ICAO24"      value={ac.icao24.toUpperCase()} accent="var(--color-muted)" />
+                  <MetaCell label="CALLSIGN"    value={ac.callsign ?? '—'}     accent="var(--color-cyan)" />
                   <MetaCell
                     label="ALTITUD"
                     value={altM != null ? `${Math.round(altM)} m · ${altFt?.toLocaleString()} ft` : '—'}
@@ -434,7 +505,6 @@ export default function MapDetailPanel({ object, onClose, eventId }: MapDetailPa
                   <MetaCell label="VELOCIDAD"   value={spdKmh != null ? `${spdKmh} km/h` : '—'} />
                   <MetaCell label="TASA VERT."  value={vrMs} />
                   <MetaCell label="RUMBO"       value={hdg} />
-                  <MetaCell label="CATEGORÍA"   value={ac.category.replace(/_/g, ' ')} />
                   <MetaCell label="ÚLIMO CONT." value={`hace ${ago}s`} accent={ago > 120 ? 'var(--color-amber)' : undefined} />
                 </div>
 

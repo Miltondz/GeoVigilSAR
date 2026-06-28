@@ -30,6 +30,8 @@ import type { EmscEvent } from '@/lib/emsc'
 import EMSR884Layer from './layers/EMSR884Layer'
 import EMSR884ProductsLayer from './layers/EMSR884ProductsLayer'
 import type { VtProductLayer } from '@/lib/emsr884'
+import type { FlightRoute } from '@/lib/airports'
+import FlightRouteLayer from './layers/FlightRouteLayer'
 
 interface Earthquake {
   id: string
@@ -63,6 +65,10 @@ interface MapLibreMapProps {
   flyTo?: FlyToTarget | null
   damagePoints?: DamagePoint[]
   onSelect?: (obj: SelectedMapObject | null) => void
+  // Lifted from GeoVigilMap
+  aircraft?: AircraftState[]
+  flightRoute?: FlightRoute | null
+  selectedAircraftIcao24?: string | null
 }
 
 // Protomaps free tile style — no key required
@@ -84,6 +90,9 @@ export default function MapLibreMap({
   flyTo,
   damagePoints = [],
   onSelect,
+  aircraft: aircraftProp = [],
+  flightRoute,
+  selectedAircraftIcao24,
 }: MapLibreMapProps) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const mapRef        = useRef<maplibregl.Map | null>(null)
@@ -96,7 +105,8 @@ export default function MapLibreMap({
   const [comparatorOpen, setComparatorOpen] = useState(false)
   const [selectedNode, setSelectedNode] = useState<DamagePoint | undefined>()
   const [vulnerabilityScores, setVulnerabilityScores] = useState<VulnerabilityScore[]>([])
-  const [aircraft, setAircraft] = useState<AircraftState[]>([])
+  // aircraft comes from parent GeoVigilMap (lifted state — no internal fetch)
+  const aircraft = aircraftProp
   const [satellitePasses, setSatellitePasses] = useState<SatellitePass[]>([])
   const [sarPostProducts, setSarPostProducts] = useState<CopernicusProduct[]>([])
   const [opticalPreProducts, setOpticalPreProducts] = useState<CopernicusProduct[]>([])
@@ -285,25 +295,7 @@ export default function MapLibreMap({
     void load()
   }, [activeLayers.satellites, eventId, satellitePasses.length])
 
-  // Fetch + poll air traffic (60s — matches server TTL, stays within OpenSky anon quota)
-  useEffect(() => {
-    if (!activeLayers.airTraffic) return
-
-    const load = async () => {
-      try {
-        const res = await fetch('/api/air-traffic')
-        if (!res.ok) return
-        const data = (await res.json()) as { aircraft: AircraftState[] }
-        setAircraft(data.aircraft ?? [])
-      } catch {
-        // OpenSky unavailable — keep previous state
-      }
-    }
-
-    void load()
-    const id = setInterval(() => void load(), 60_000)
-    return () => clearInterval(id)
-  }, [activeLayers.airTraffic])
+  // Aircraft data is now lifted to GeoVigilMap — no internal fetch needed
 
   // Fetch SAR post-event products when the layer is activated
   useEffect(() => {
@@ -494,6 +486,13 @@ export default function MapLibreMap({
               aircraft={aircraft}
               visible={activeLayers.airTraffic ?? false}
               onSelect={onSelectRef.current ?? undefined}
+            />
+            <FlightRouteLayer
+              map={mapRef.current}
+              flightRoute={flightRoute ?? null}
+              selectedIcao24={selectedAircraftIcao24 ?? null}
+              aircraft={aircraft}
+              visible={!!(activeLayers.airTraffic && selectedAircraftIcao24)}
             />
             <SatelliteTrackLayer
               map={mapRef.current}

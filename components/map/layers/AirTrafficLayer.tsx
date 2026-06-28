@@ -7,14 +7,16 @@ import { isMapAlive } from './mapUtils'
 import { registerAircraftIcons, categoryToIcon } from './aircraftIcons'
 import type { AircraftState } from '@/lib/opensky'
 import type { SelectedMapObject } from '@/lib/types/map-selection'
+import { countryFlag } from '@/lib/country-flags'
 
 // Max trail points per aircraft (60s poll × 15 = 15 min of history)
 const TRAIL_MAX = 15
 
-const SRC_POINTS = 'air-traffic'
-const SRC_TRAILS = 'air-traffic-trails'
-const LYR_TRAILS = 'air-traffic-trails-line'
-const LYR_ICONS  = 'air-traffic-symbols'
+const SRC_POINTS  = 'air-traffic'
+const SRC_TRAILS  = 'air-traffic-trails'
+const LYR_TRAILS  = 'air-traffic-trails-line'
+const LYR_ICONS   = 'air-traffic-symbols'
+const LYR_LABELS  = 'air-traffic-labels'
 
 interface AirTrafficLayerProps {
   map: MapLibreMap
@@ -43,6 +45,7 @@ function buildPointsGeoJSON(aircraft: AircraftState[]): GeoJSON.FeatureCollectio
           onGround:     a.onGround,
           lastContact:  a.lastContact,
           icon:         categoryToIcon(a.category),
+          flag:         countryFlag(a.originCountry),
         },
       })),
   }
@@ -125,6 +128,28 @@ export default function AirTrafficLayer({ map, aircraft, visible, onSelect }: Ai
         })
       }
 
+      // Flag + callsign text label
+      if (!map.getLayer(LYR_LABELS)) {
+        map.addLayer({
+          id:     LYR_LABELS,
+          type:   'symbol',
+          source: SRC_POINTS,
+          layout: {
+            'text-field':         ['concat', ['get', 'flag'], ' ', ['get', 'callsign']],
+            'text-size':          10,
+            'text-offset':        [0, 1.5],
+            'text-anchor':        'top',
+            'text-allow-overlap': false,
+            'visibility':         visible ? 'visible' : 'none',
+          },
+          paint: {
+            'text-color':      '#00B4FF',
+            'text-halo-color': 'rgba(0,0,0,0.85)',
+            'text-halo-width': 1.5,
+          },
+        })
+      }
+
       // Hover cursor
       const onEnter = () => { map.getCanvas().style.cursor = 'pointer' }
       const onLeave = () => { map.getCanvas().style.cursor = '' }
@@ -180,6 +205,7 @@ export default function AirTrafficLayer({ map, aircraft, visible, onSelect }: Ai
     return () => {
       cancelled = true
       if (!isMapAlive(map)) return
+      if (map.getLayer(LYR_LABELS)) map.removeLayer(LYR_LABELS)
       if (map.getLayer(LYR_ICONS))  map.removeLayer(LYR_ICONS)
       if (map.getLayer(LYR_TRAILS)) map.removeLayer(LYR_TRAILS)
       if (map.getSource(SRC_POINTS)) map.removeSource(SRC_POINTS)
@@ -231,6 +257,7 @@ export default function AirTrafficLayer({ map, aircraft, visible, onSelect }: Ai
   useEffect(() => {
     if (!isMapAlive(map)) return
     const v = visible ? 'visible' : 'none'
+    if (map.getLayer(LYR_LABELS)) map.setLayoutProperty(LYR_LABELS, 'visibility', v)
     if (map.getLayer(LYR_ICONS))  map.setLayoutProperty(LYR_ICONS, 'visibility', v)
     if (map.getLayer(LYR_TRAILS)) map.setLayoutProperty(LYR_TRAILS, 'visibility', v)
   }, [map, visible])

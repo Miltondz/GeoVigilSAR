@@ -5,6 +5,9 @@ import type { Viewer as CesiumViewer, Entity as CesiumEntity, Cartesian3 as Cesi
 import type { DamagePoint } from '@/lib/events/ven-2406'
 import type { SelectedMapObject } from '@/lib/types/map-selection'
 import type { SatellitePass } from '@/lib/orbits'
+import type { AircraftState } from '@/lib/opensky'
+import type { FlightRoute } from '@/lib/airports'
+import { countryFlag } from '@/lib/country-flags'
 
 // Boconó-Morón-El Pilar fault system coordinates [lng, lat, lng, lat, ...]
 // Duplicated from FaultLinesLayer to avoid cross-tree imports
@@ -57,6 +60,10 @@ interface Cesium3DGlobeProps {
   damagePoints?: DamagePoint[]
   onSelect?: (obj: SelectedMapObject | null) => void
   eventId?: string
+  // Air traffic
+  aircraft?: AircraftState[]
+  flightRoute?: FlightRoute | null
+  selectedAircraftIcao24?: string | null
 }
 
 export default function Cesium3DGlobe({
@@ -68,6 +75,9 @@ export default function Cesium3DGlobe({
   damagePoints = [],
   onSelect,
   eventId = 'VEN-2406',
+  aircraft = [],
+  flightRoute,
+  selectedAircraftIcao24,
 }: Cesium3DGlobeProps) {
   const containerRef      = useRef<HTMLDivElement>(null)
   const viewerRef         = useRef<CesiumViewer | null>(null)
@@ -79,6 +89,9 @@ export default function Cesium3DGlobe({
   const damageEntitiesRef     = useRef<CesiumEntity[]>([])  // damage assessment points
   const satelliteEntitiesRef  = useRef<CesiumEntity[]>([])  // satellite bodies + tracks
   const satellitePassesRef    = useRef<SatellitePass[]>([]) // for click handler lookup
+  const aircraftEntitiesRef   = useRef<CesiumEntity[]>([])  // 3D aircraft icons + labels
+  const routeEntitiesRef      = useRef<CesiumEntity[]>([])  // departure/arrival airport markers
+  const aircraftRef           = useRef<AircraftState[]>([]) // live aircraft for click handler
   const earthquakesRef  = useRef<EarthquakeMarker[]>([])
   const damagePointsRef = useRef<DamagePoint[]>([])
   const onSelectRef     = useRef(onSelect)
@@ -203,6 +216,30 @@ export default function Cesium3DGlobe({
                 return
               }
             }
+
+            // Check 3D aircraft entities (id = `aircraft-3d-{icao24}`)
+            if (entityId.startsWith('aircraft-3d-')) {
+              const icao24 = entityId.slice(12)
+              const ac = aircraftRef.current?.find(a => a.icao24 === icao24)
+              if (ac?.longitude != null && ac?.latitude != null) {
+                onSelectRef.current?.({
+                  type:         'aircraft',
+                  icao24:       ac.icao24,
+                  callsign:     ac.callsign ?? ac.icao24,
+                  lat:          ac.latitude,
+                  lng:          ac.longitude,
+                  baroAltitude: ac.baroAltitude,
+                  velocity:     ac.velocity,
+                  heading:      ac.heading,
+                  verticalRate: ac.verticalRate,
+                  onGround:     ac.onGround,
+                  originCountry:ac.originCountry,
+                  category:     ac.category,
+                  lastContact:  ac.lastContact,
+                })
+                return
+              }
+            }
           }
           onSelectRef.current?.(null)
         }, CesiumLib.ScreenSpaceEventType.LEFT_CLICK)
@@ -234,6 +271,8 @@ export default function Cesium3DGlobe({
       aftershockEntitiesRef.current = []
       damageEntitiesRef.current = []
       satelliteEntitiesRef.current = []
+      aircraftEntitiesRef.current = []
+      routeEntitiesRef.current = []
     }
     // epicenter is used only for the initial flyTo — intentionally excluded
     // from deps so Cesium re-initializes only once.
@@ -339,8 +378,9 @@ export default function Cesium3DGlobe({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cesiumReady])
 
-  // Keep earthquakesRef in sync for click handler lookups
+  // Keep refs in sync for click handler lookups
   useEffect(() => { earthquakesRef.current = earthquakes }, [earthquakes])
+  useEffect(() => { aircraftRef.current    = aircraft    }, [aircraft])
 
   // ── Layer visibility toggles ──────────────────────────────────────────────
   useEffect(() => {
@@ -747,6 +787,131 @@ export default function Cesium3DGlobe({
     render()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cesiumReady, activeLayers.satellites, eventId])
+
+  // ── Aircraft in 3D — icons + flag labels ─────────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+
+    const render = async () => {
+      const CesiumLib = await import('cesium')
+      if (viewer.isDestroyed()) return
+
+      for (const ent of aircraftEntitiesRef.current) viewer.entities.remove(ent)
+      aircraftEntitiesRef.current = []
+
+      if (!(activeLayers.airTraffic ?? false) || aircraft.length === 0) return
+
+      for (const ac of aircraft) {
+        if (ac.longitude == null || ac.latitude == null) continue
+        const altM = ac.baroAltitude != null ? ac.baroAltitude : 0
+        const flag = countryFlag(ac.originCountry)
+        const callsign = ac.callsign ?? ac.icao24
+
+        const ent = viewer.entities.add({
+          id:       `aircraft-3d-${ac.icao24}`,
+          position: CesiumLib.Cartesian3.fromDegrees(ac.longitude, ac.latitude, altM),
+          point: {
+            pixelSize:                8,
+            color:                    CesiumLib.Color.fromCssColorString(ac.onGround ? '#607080' : '#00B4FF'),
+            outlineColor:             CesiumLib.Color.WHITE,
+            outlineWidth:             1,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+          label: {
+            text:                     `${flag} ${callsign}`,
+            font:                     '10px monospace',
+            fillColor:                CesiumLib.Color.fromCssColorString('#00B4FF'),
+            outlineColor:             CesiumLib.Color.BLACK,
+            outlineWidth:             2,
+            style:                    CesiumLib.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset:              new CesiumLib.Cartesian2(10, 0),
+            horizontalOrigin:         CesiumLib.HorizontalOrigin.LEFT,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+        })
+        aircraftEntitiesRef.current.push(ent)
+      }
+    }
+
+    render()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady, activeLayers.airTraffic, aircraft])
+
+  // ── Flight route airports in 3D ───────────────────────────────────────────
+  useEffect(() => {
+    if (!cesiumReady || !viewerRef.current) return
+    const viewer = viewerRef.current
+    if (viewer.isDestroyed()) return
+
+    const render = async () => {
+      const CesiumLib = await import('cesium')
+      if (viewer.isDestroyed()) return
+
+      for (const ent of routeEntitiesRef.current) viewer.entities.remove(ent)
+      routeEntitiesRef.current = []
+
+      if (!flightRoute) return
+
+      const airports = [
+        { ap: flightRoute.departure, role: 'DEP', color: '#00FF88' },
+        { ap: flightRoute.arrival,   role: 'ARR', color: '#FFB800' },
+      ]
+
+      for (const { ap, role, color } of airports) {
+        if (!ap) continue
+        const flag = countryFlag(ap.country)
+
+        const dot = viewer.entities.add({
+          position: CesiumLib.Cartesian3.fromDegrees(ap.lng, ap.lat, 0),
+          point: {
+            pixelSize:                10,
+            color:                    CesiumLib.Color.fromCssColorString(color),
+            outlineColor:             CesiumLib.Color.WHITE,
+            outlineWidth:             1.5,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            heightReference:          CesiumLib.HeightReference.CLAMP_TO_GROUND,
+          },
+          label: {
+            text:                     `${flag} ${ap.iata ?? ap.icao} · ${ap.city}`,
+            font:                     '11px monospace',
+            fillColor:                CesiumLib.Color.fromCssColorString(color),
+            outlineColor:             CesiumLib.Color.BLACK,
+            outlineWidth:             2,
+            style:                    CesiumLib.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset:              new CesiumLib.Cartesian2(0, -20),
+            verticalOrigin:           CesiumLib.VerticalOrigin.BOTTOM,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            heightReference:          CesiumLib.HeightReference.CLAMP_TO_GROUND,
+          },
+        })
+        routeEntitiesRef.current.push(dot)
+
+        // Route role badge
+        void role  // suppress unused warning — used as visual reference
+      }
+
+      // Route polyline on surface
+      if (flightRoute.departure && flightRoute.arrival) {
+        const line = viewer.entities.add({
+          polyline: {
+            positions: [
+              CesiumLib.Cartesian3.fromDegrees(flightRoute.departure.lng, flightRoute.departure.lat, 0),
+              CesiumLib.Cartesian3.fromDegrees(flightRoute.arrival.lng,   flightRoute.arrival.lat,   0),
+            ],
+            width:             1.5,
+            material:          CesiumLib.Color.fromCssColorString('#FFB800').withAlpha(0.4),
+            clampToGround:     true,
+          },
+        })
+        routeEntitiesRef.current.push(line)
+      }
+    }
+
+    render()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cesiumReady, flightRoute])
 
   // ── Resize when globe becomes visible ────────────────────────────────────
   useEffect(() => {
