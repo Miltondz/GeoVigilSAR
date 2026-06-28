@@ -6,6 +6,7 @@ import LayerToggle from '@/components/map/controls/LayerToggle'
 import EventSelector from '@/components/EventSelector'
 import ExportMenu from '@/components/ui/ExportMenu'
 import ZoneSearch from '@/components/map/controls/ZoneSearch'
+import DateFilter, { type DateRange } from '@/components/map/controls/DateFilter'
 import { getEvent } from '@/lib/events/index'
 
 interface DashboardHeaderProps {
@@ -18,6 +19,8 @@ interface DashboardHeaderProps {
   onSitrepOpen?: () => void
   onDataSourcesOpen?: () => void
   onSystemHealthOpen?: () => void
+  dateFilter: DateRange
+  onDateFilterChange: (v: DateRange) => void
   earthquakes?: {
     id: string; magnitude: number; depth: number; lat: number; lng: number
     time: number; place: string; classification: string
@@ -34,6 +37,8 @@ export default function DashboardHeader({
   onSitrepOpen,
   onDataSourcesOpen,
   onSystemHealthOpen,
+  dateFilter,
+  onDateFilterChange,
   earthquakes = [],
 }: DashboardHeaderProps) {
   const router = useRouter()
@@ -88,6 +93,14 @@ export default function DashboardHeader({
 
       {/* Live badge */}
       <StatusBadge status={event.status === 'active' ? 'live' : 'offline'} label={event.status === 'active' ? 'EN VIVO' : 'ARCHIVO'} />
+
+      <div style={{ width: 1, height: 20, backgroundColor: 'var(--color-slate)', flexShrink: 0 }} />
+
+      <DateFilter
+        value={dateFilter}
+        minDate="2026-06-24"
+        onChange={onDateFilterChange}
+      />
 
       <div style={{ flex: 1 }} />
 

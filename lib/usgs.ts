@@ -41,9 +41,10 @@ export async function fetchUSGSEarthquakes(
   bbox: BoundingBox,
   {
     startTime,
+    endTime,
     minMagnitude = 2.0,
     limit = 500,
-  }: { startTime?: string; minMagnitude?: number; limit?: number } = {}
+  }: { startTime?: string; endTime?: string; minMagnitude?: number; limit?: number } = {}
 ): Promise<USGSFeature[]> {
   const params = new URLSearchParams({
     format: 'geojson',
@@ -56,6 +57,7 @@ export async function fetchUSGSEarthquakes(
     limit: limit.toString(),
   })
   if (startTime) params.set('starttime', startTime)
+  if (endTime)   params.set('endtime', endTime)
 
   const res = await fetch(
     `https://earthquake.usgs.gov/fdsnws/event/1/query?${params.toString()}`,

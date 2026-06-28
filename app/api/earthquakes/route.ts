@@ -7,15 +7,22 @@ export const revalidate = 60
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
-  const eventId = searchParams.get('eventId') ?? 'VEN-2406'
-  const minMag   = parseFloat(searchParams.get('minMag') ?? '2.0')
-  const limit     = parseInt(searchParams.get('limit') ?? '500', 10)
+  const eventId    = searchParams.get('eventId') ?? 'VEN-2406'
+  const minMag     = parseFloat(searchParams.get('minMag') ?? '2.0')
+  const limit      = parseInt(searchParams.get('limit') ?? '500', 10)
+  const startParam = searchParams.get('startTime')
+  const endParam   = searchParams.get('endTime')
 
   const event = getEvent(eventId)
 
+  // Custom date range overrides event default; endTime gets 23:59:59 to include full day
+  const startTime = startParam ? `${startParam}T00:00:00` : event.usgsQuery.startTime
+  const endTime   = endParam   ? `${endParam}T23:59:59`   : undefined
+
   try {
     const raw = await fetchUSGSEarthquakes(event.bbox, {
-      startTime: event.usgsQuery.startTime,
+      startTime,
+      endTime,
       minMagnitude: minMag,
       limit,
     })

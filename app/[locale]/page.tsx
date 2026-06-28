@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
+import type { DateRange } from '@/components/map/controls/DateFilter'
 import DashboardHeader from '@/components/DashboardHeader'
 import StatsPanel from '@/components/panels/StatsPanel'
 import AIPanel from '@/components/panels/AIPanel'
@@ -60,6 +61,10 @@ export default function DashboardPage({ params }: { params: { locale: string } }
     id: string; magnitude: number; depth: number; lat: number; lng: number
     time: number; place: string; classification: string
   }[]>([])
+  const [dateFilter, setDateFilter] = useState<DateRange>({
+    start: '2026-06-24',
+    end: new Date().toISOString().slice(0, 10),
+  })
   const [humanStats, setHumanStats] = useState<{
     fatalities: number; injured: number
   } | null>(null)
@@ -90,7 +95,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
 
   const handleEventChange = useCallback((eventId: string) => {
     setActiveEventId(eventId)
-    setLiveEarthquakes([])  // clear until new data loads
+    setLiveEarthquakes([])
+    setDateFilter({ start: '2026-06-24', end: new Date().toISOString().slice(0, 10) })
   }, [])
 
   const handleZoomTo = useCallback((lat: number, lng: number, name: string) => {
@@ -163,6 +169,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         onSitrepOpen={() => setSitrepOpen(true)}
         onDataSourcesOpen={() => setDataSourcesPanelOpen(o => !o)}
         onSystemHealthOpen={() => setSystemHealthOpen(true)}
+        dateFilter={dateFilter}
+        onDateFilterChange={setDateFilter}
         earthquakes={liveEarthquakes}
       />
 
@@ -186,6 +194,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
             timelineMs={timelineMs}
             flyTo={mapTarget}
             damagePoints={event.damageAssessment ?? []}
+            dateFilter={dateFilter}
           />
         </div>
 
