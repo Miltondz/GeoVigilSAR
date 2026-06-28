@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { buildSystemPrompt, getAIClient, DEFAULT_MODEL } from '@/lib/ai'
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 interface ChatMessage {
   role: 'user' | 'assistant'

@@ -30,19 +30,30 @@ const nextConfig = {
       })
     )
 
+    // satellite.js v5 WASM build imports worker_threads + uses pthreads — unusable in browser.
+    // Alias the WASM entry to false (empty module); pure-JS propagation functions still work.
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      // Stub the entire WASM sub-tree so webpack never tries to load worker_threads
+      'satellite.js/dist/wasm': false,
+    }
+
     if (!isServer) {
       // Browser resolve fallbacks — Cesium's ESM tree-shakes these, but webpack
       // may attempt to resolve them when analyzing dynamic imports.
       config.resolve.fallback = {
         ...config.resolve.fallback,
-        https: false,
-        http: false,
-        zlib: false,
-        url: false,
-        fs: false,
-        path: false,
-        os: false,
-        module: false,
+        https:          false,
+        http:           false,
+        zlib:           false,
+        url:            false,
+        fs:             false,
+        path:           false,
+        os:             false,
+        module:         false,
+        worker_threads: false,
+        perf_hooks:     false,
+        child_process:  false,
       }
     }
     return config
