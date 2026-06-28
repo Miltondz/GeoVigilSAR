@@ -21,7 +21,15 @@ const nextConfig = {
     ],
   },
 
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, webpack }) => {
+    // Strip `node:` URI prefix — webpack 5 does not handle it natively.
+    // Affects: openai SDK and other deps that use `import 'node:module'`.
+    config.plugins.push(
+      new webpack.NormalModuleReplacementPlugin(/^node:/, (resource) => {
+        resource.request = resource.request.replace(/^node:/, '')
+      })
+    )
+
     if (!isServer) {
       // Browser resolve fallbacks — Cesium's ESM tree-shakes these, but webpack
       // may attempt to resolve them when analyzing dynamic imports.
@@ -34,6 +42,7 @@ const nextConfig = {
         fs: false,
         path: false,
         os: false,
+        module: false,
       }
     }
     return config
