@@ -5,6 +5,7 @@ import type { SelectedMapObject } from '@/lib/types/map-selection'
 import type { FlightRoute, FlightAirport } from '@/lib/airports'
 import { countryFlag } from '@/lib/country-flags'
 import { AircraftSilhouette, categoryLabel } from '@/lib/aircraft-silhouettes'
+import { addSavedEvent, isEventSaved } from '@/lib/saved-events'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -206,6 +207,14 @@ function AirportBadge({ ap, role }: { ap: FlightAirport; role: 'DEP' | 'ARR' }) 
 
 export default function MapDetailPanel({ object, onClose, eventId, flightRoute }: MapDetailPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (!object) { setSaved(false); return }
+    const id = object.type === 'earthquake' ? object.id : null
+    if (id) setSaved(isEventSaved(id))
+    else setSaved(false)
+  }, [object])
 
   // Close on Escape
   useEffect(() => {
@@ -213,6 +222,22 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
+
+  const handleSave = () => {
+    if (!object || object.type !== 'earthquake') return
+    addSavedEvent({
+      id:        object.id,
+      label:     `M${object.magnitude.toFixed(1)} — ${object.place}`,
+      place:     object.place,
+      lat:       object.lat,
+      lng:       object.lng,
+      magnitude: object.magnitude,
+      depth:     object.depth,
+      time:      object.time,
+      eventId:   undefined,
+    })
+    setSaved(true)
+  }
 
   const visible = object !== null
 
@@ -308,21 +333,45 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
               {object.lat.toFixed(4)}°N {Math.abs(object.lng).toFixed(4)}°W
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--color-muted)',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-hud)',
-              fontSize: '0.75rem',
-              padding: '0 0.25rem',
-              lineHeight: 1,
-            }}
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', alignItems: 'flex-end', flexShrink: 0 }}>
+            {/* Save / bookmark — only for earthquakes */}
+            {object.type === 'earthquake' && (
+              <button
+                onClick={handleSave}
+                disabled={saved}
+                title={saved ? 'Ya guardado en eventos' : 'Guardar este sismo'}
+                style={{
+                  background: 'none',
+                  border: `1px solid ${saved ? 'var(--color-green)' : 'var(--color-slate)'}`,
+                  color: saved ? 'var(--color-green)' : 'var(--color-muted)',
+                  cursor: saved ? 'default' : 'pointer',
+                  fontFamily: 'var(--font-hud)',
+                  fontSize: '0.625rem',
+                  padding: '0.125rem 0.375rem',
+                  lineHeight: 1,
+                  letterSpacing: '0.08em',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {saved ? '◈ GUARDADO' : '◈ GUARDAR'}
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--color-muted)',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-hud)',
+                fontSize: '0.75rem',
+                padding: '0 0.25rem',
+                lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* scrollable content */}

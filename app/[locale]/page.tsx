@@ -13,6 +13,8 @@ import InSARPanel from '@/components/panels/InSARPanel'
 import DataSourcesPanel from '@/components/panels/DataSourcesPanel'
 import SystemHealthModal from '@/components/ui/SystemHealthModal'
 import EMSR884Panel from '@/components/panels/EMSR884Panel'
+import SavedEventsPanel from '@/components/panels/SavedEventsPanel'
+import type { SavedEvent } from '@/lib/saved-events'
 import { getEvent } from '@/lib/events/index'
 
 const DEFAULT_LAYERS: Record<string, boolean> = {
@@ -55,7 +57,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [insarPanelOpen, setInsarPanelOpen] = useState(false)
   const [dataSourcesPanelOpen, setDataSourcesPanelOpen] = useState(false)
   const [systemHealthOpen, setSystemHealthOpen] = useState(true)
-  const [emsr884PanelOpen, setEmsr884PanelOpen] = useState(false)
+  const [emsr884PanelOpen, setEmsr884PanelOpen]         = useState(false)
+  const [savedEventsPanelOpen, setSavedEventsPanelOpen] = useState(false)
   const [mapTarget, setMapTarget] = useState<{ lat: number; lng: number; name: string } | null>(null)
   const [liveEarthquakes, setLiveEarthquakes] = useState<{
     id: string; magnitude: number; depth: number; lat: number; lng: number
@@ -104,6 +107,19 @@ export default function DashboardPage({ params }: { params: { locale: string } }
 
   const handleZoomTo = useCallback((lat: number, lng: number, name: string) => {
     setMapTarget({ lat, lng, name })
+  }, [])
+
+  const handleSavedEventSelect = useCallback((ev: SavedEvent) => {
+    // Fly to event location
+    setMapTarget({ lat: ev.lat, lng: ev.lng, name: ev.label })
+    // Switch to registered event if applicable
+    if (ev.eventId) {
+      setActiveEventId(ev.eventId)
+      const evDate = new Date(ev.time).toISOString().slice(0, 10)
+      const todayStr = new Date().toISOString().slice(0, 10)
+      setDateFilter({ start: evDate, end: todayStr })
+    }
+    setSavedEventsPanelOpen(false)
   }, [])
 
   const handleViewportChange = useCallback((bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => {
@@ -174,6 +190,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
       height: '100vh',
       backgroundColor: 'var(--color-bg)',
       overflow: 'hidden',
+      position: 'relative',
     }}>
       <DashboardHeader
         eventId={activeEventId}
@@ -185,6 +202,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         onSitrepOpen={() => setSitrepOpen(true)}
         onDataSourcesOpen={() => setDataSourcesPanelOpen(o => !o)}
         onSystemHealthOpen={() => setSystemHealthOpen(true)}
+        onSavedEventsOpen={() => setSavedEventsPanelOpen(o => !o)}
         dateFilter={dateFilter}
         onDateFilterChange={setDateFilter}
         earthquakes={liveEarthquakes}
@@ -230,6 +248,12 @@ export default function DashboardPage({ params }: { params: { locale: string } }
           onChange={setTimelineValue}
         />
       </div>
+
+      <SavedEventsPanel
+        visible={savedEventsPanelOpen}
+        onClose={() => setSavedEventsPanelOpen(false)}
+        onSelect={handleSavedEventSelect}
+      />
 
       <HospitalStatusPanel
         visible={hospitalPanelOpen}

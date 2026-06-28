@@ -19,6 +19,7 @@ interface DashboardHeaderProps {
   onSitrepOpen?: () => void
   onDataSourcesOpen?: () => void
   onSystemHealthOpen?: () => void
+  onSavedEventsOpen?: () => void
   dateFilter: DateRange
   onDateFilterChange: (v: DateRange) => void
   earthquakes?: {
@@ -37,6 +38,7 @@ export default function DashboardHeader({
   onSitrepOpen,
   onDataSourcesOpen,
   onSystemHealthOpen,
+  onSavedEventsOpen,
   dateFilter,
   onDateFilterChange,
   earthquakes = [],
@@ -106,6 +108,29 @@ export default function DashboardHeader({
 
       {/* Controls right */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+        {/* Saved events */}
+        {onSavedEventsOpen && (
+          <button
+            onClick={onSavedEventsOpen}
+            title="Eventos guardados"
+            style={{
+              fontFamily: 'var(--font-hud)',
+              fontSize: '0.6875rem',
+              letterSpacing: '0.12em',
+              color: 'var(--color-amber)',
+              background: 'none',
+              border: '1px solid var(--color-amber)',
+              padding: '0.25rem 0.625rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+            }}
+          >
+            ◈ EVENTOS
+          </button>
+        )}
+
         {/* Zone search */}
         <ZoneSearch
           onResult={r => onZoomTo?.(r.lat, r.lng, r.name)}
