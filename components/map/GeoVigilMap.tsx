@@ -1,8 +1,10 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { DateRange } from '@/components/map/controls/DateFilter'
+import type { SelectedMapObject } from '@/lib/types/map-selection'
+import MapDetailPanel from '@/components/panels/MapDetailPanel'
 import Scanlines from './overlays/Scanlines'
 import HUDCorners from './overlays/HUDCorners'
 import ViewModeToggle from './controls/ViewModeToggle'
@@ -79,6 +81,9 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   const [lastFetch, setLastFetch] = useState(0)
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d')
   const [visionMode, setVisionMode] = useState<VisionMode>('CRT')
+  const [selectedObject, setSelectedObject] = useState<SelectedMapObject | null>(null)
+  const handleSelect = useCallback((obj: SelectedMapObject | null) => setSelectedObject(obj), [])
+  const handleCloseDetail = useCallback(() => setSelectedObject(null), [])
 
   // Fetch real USGS data — re-fetches on dateFilter change
   useEffect(() => {
@@ -124,6 +129,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
           timelineMs={timelineMs}
           flyTo={flyTo}
           damagePoints={damagePoints}
+          onSelect={handleSelect}
         />
       </div>
 
@@ -135,6 +141,14 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
         satellite={!!activeLayers.satellite}
         activeLayers={activeLayers}
         damagePoints={damagePoints}
+        onSelect={handleSelect}
+      />
+
+      {/* Detail panel — slide-in over map area */}
+      <MapDetailPanel
+        object={selectedObject}
+        onClose={handleCloseDetail}
+        eventId={eventId}
       />
 
       {/* Vision mode overlay — covers full map canvas, below UI controls */}

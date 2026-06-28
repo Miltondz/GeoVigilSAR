@@ -10,11 +10,13 @@ export async function GET(req: NextRequest) {
   const eventId = searchParams.get('eventId') ?? 'VEN-2406'
   const lang    = searchParams.get('lang') as 'es' | 'en' | null
   const limit   = parseInt(searchParams.get('limit') ?? '25', 10)
+  const place   = searchParams.get('place') ?? ''  // optional location term
 
   const event = getEvent(eventId)
+  const query = place ? `${event.gdeltQuery} "${place}"` : event.gdeltQuery
 
   try {
-    const items = await fetchGDELTNews(event.gdeltQuery, {
+    const items = await fetchGDELTNews(query, {
       maxRecords: limit,
       timespanMinutes: 1440,
     })

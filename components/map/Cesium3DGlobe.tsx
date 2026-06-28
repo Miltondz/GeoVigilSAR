@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Viewer as CesiumViewer, Entity as CesiumEntity } from 'cesium'
 import type { DamagePoint } from '@/lib/events/ven-2406'
+import type { SelectedMapObject } from '@/lib/types/map-selection'
 
 // Boconó-Morón-El Pilar fault system coordinates [lng, lat, lng, lat, ...]
 // Duplicated from FaultLinesLayer to avoid cross-tree imports
@@ -53,6 +54,7 @@ interface Cesium3DGlobeProps {
   satellite?: boolean
   activeLayers?: Record<string, boolean>
   damagePoints?: DamagePoint[]
+  onSelect?: (obj: SelectedMapObject | null) => void
 }
 
 export default function Cesium3DGlobe({
@@ -62,6 +64,7 @@ export default function Cesium3DGlobe({
   satellite = false,
   activeLayers = {},
   damagePoints = [],
+  onSelect,
 }: Cesium3DGlobeProps) {
   const containerRef      = useRef<HTMLDivElement>(null)
   const viewerRef         = useRef<CesiumViewer | null>(null)
@@ -71,10 +74,12 @@ export default function Cesium3DGlobe({
   const faultEntitiesRef      = useRef<CesiumEntity[]>([])  // fault polylines
   const impactEntitiesRef     = useRef<CesiumEntity[]>([])  // cone + wave pulse
   const damageEntitiesRef     = useRef<CesiumEntity[]>([])  // damage assessment points
-  const earthquakesRef    = useRef<EarthquakeMarker[]>([])
+  const earthquakesRef  = useRef<EarthquakeMarker[]>([])
+  const damagePointsRef = useRef<DamagePoint[]>([])
+  const onSelectRef     = useRef(onSelect)
+  useEffect(() => { onSelectRef.current = onSelect }, [onSelect])
   const [cesiumReady, setCesiumReady] = useState(false)
   const [error, setError]             = useState<string | null>(null)
-  const [selectedEq, setSelectedEq]   = useState<EarthquakeMarker | null>(null)
 
   // ── Init Cesium once on mount ─────────────────────────────────────────────
   useEffect(() => {
@@ -131,17 +136,51 @@ export default function Cesium3DGlobe({
           duration: 0,
         })
 
-        // Click handler — show HUD popup for selected earthquake marker
+        // Click handler — opens MapDetailPanel for earthquakes and damage points
         const handler = new CesiumLib.ScreenSpaceEventHandler(viewer.scene.canvas)
         handler.setInputAction((evt: { position: { x: number; y: number } }) => {
-          const pos = new CesiumLib.Cartesian2(evt.position.x, evt.position.y)
+          const pos    = new CesiumLib.Cartesian2(evt.position.x, evt.position.y)
           const picked = viewer.scene.pick(pos)
           if (CesiumLib.defined(picked) && picked.id) {
-            const found = earthquakesRef.current.find(e => e.id === (picked.id as { id?: string }).id)
-            setSelectedEq(found ?? null)
-          } else {
-            setSelectedEq(null)
+            const entityId = (picked.id as { id?: string }).id ?? ''
+
+            // Check earthquake entities
+            const eq = earthquakesRef.current.find(e => e.id === entityId)
+            if (eq) {
+              onSelectRef.current?.({
+                type: 'earthquake',
+                id:             eq.id,
+                magnitude:      eq.magnitude,
+                depth:          eq.depth,
+                lat:            eq.lat,
+                lng:            eq.lng,
+                time:           eq.time ?? 0,
+                place:          eq.place ?? '',
+                classification: eq.magnitude >= 6.5 ? 'mainshock' : 'aftershock',
+              })
+              return
+            }
+
+            // Check damage point entities (id = `damage-${pt.id}`)
+            if (entityId.startsWith('damage-')) {
+              const ptId = entityId.slice(7)
+              const pt   = damagePointsRef.current.find(d => d.id === ptId)
+              if (pt) {
+                onSelectRef.current?.({
+                  type: 'damage',
+                  id:            pt.id,
+                  lat:           pt.lat,
+                  lng:           pt.lng,
+                  address:       pt.address,
+                  damageType:    pt.damageType,
+                  sarConfidence: pt.sarConfidence,
+                  buildingType:  pt.buildingType,
+                })
+                return
+              }
+            }
           }
+          onSelectRef.current?.(null)
         }, CesiumLib.ScreenSpaceEventType.LEFT_CLICK)
 
         viewerRef.current = viewer
@@ -477,6 +516,7 @@ export default function Cesium3DGlobe({
 
       for (const ent of damageEntitiesRef.current) viewer.entities.remove(ent)
       damageEntitiesRef.current = []
+      damagePointsRef.current   = damagePoints   // keep ref in sync for click handler
 
       if (!(activeLayers.damagePoints ?? true)) return
 
@@ -486,6 +526,7 @@ export default function Cesium3DGlobe({
         const size  = pt.damageType === 'collapsed' ? 12 : 9
 
         const ent = viewer.entities.add({
+          id:       `damage-${pt.id}`,  // prefixed so click handler can identify
           show:     true,
           position: CesiumLib.Cartesian3.fromDegrees(pt.lng, pt.lat),
           point: {
@@ -563,39 +604,6 @@ export default function Cesium3DGlobe({
 
       {/* Globe canvas target */}
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-
-      {/* HUD popup — selected earthquake info */}
-      {selectedEq && (
-        <div
-          onClick={() => setSelectedEq(null)}
-          style={{
-            position: 'absolute',
-            bottom: 48,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: 'rgba(0,10,15,0.92)',
-            border: `1px solid ${selectedEq.magnitude >= 6.5 ? C_RED : selectedEq.magnitude >= 4 ? C_AMBER : C_GREEN}`,
-            padding: '0.625rem 1rem',
-            fontFamily: 'var(--font-hud)',
-            zIndex: 30,
-            pointerEvents: 'auto',
-            cursor: 'pointer',
-            minWidth: 220,
-          }}
-        >
-          <div style={{ fontSize: '0.625rem', color: selectedEq.magnitude >= 6.5 ? C_RED : selectedEq.magnitude >= 4 ? C_AMBER : C_GREEN, letterSpacing: '0.15em', marginBottom: 4 }}>
-            M{selectedEq.magnitude.toFixed(1)} · SISMO DETECTADO
-          </div>
-          {selectedEq.place && (
-            <div style={{ fontSize: '0.5rem', color: '#E0E8F0', marginBottom: 2 }}>{selectedEq.place}</div>
-          )}
-          <div style={{ fontSize: '0.4375rem', color: '#607080' }}>
-            Prof: {selectedEq.depth} km
-            {selectedEq.time && ` · ${new Date(selectedEq.time).toISOString().slice(0, 16).replace('T', ' ')} UTC`}
-          </div>
-          <div style={{ fontSize: '0.375rem', color: '#607080', marginTop: 4, letterSpacing: '0.1em' }}>CLICK PARA CERRAR</div>
-        </div>
-      )}
 
       {/* Loading state */}
       {!cesiumReady && !error && (

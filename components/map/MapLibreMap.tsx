@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import type { SelectedMapObject } from '@/lib/types/map-selection'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import Scanlines from './overlays/Scanlines'
@@ -61,6 +62,7 @@ interface MapLibreMapProps {
   timelineMs?: number
   flyTo?: FlyToTarget | null
   damagePoints?: DamagePoint[]
+  onSelect?: (obj: SelectedMapObject | null) => void
 }
 
 // Protomaps free tile style — no key required
@@ -81,10 +83,13 @@ export default function MapLibreMap({
   timelineMs,
   flyTo,
   damagePoints = [],
+  onSelect,
 }: MapLibreMapProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef = useRef<maplibregl.Map | null>(null)
+  const containerRef  = useRef<HTMLDivElement>(null)
+  const mapRef        = useRef<maplibregl.Map | null>(null)
   const osmLayerIdsRef = useRef<string[]>([])
+  const onSelectRef   = useRef(onSelect)
+  useEffect(() => { onSelectRef.current = onSelect }, [onSelect])
   const [mapLoaded, setMapLoaded] = useState(false)
   const [viewport, setViewport] = useState({ lat: center[1], lng: center[0], zoom })
   const [targeting, setTargeting] = useState<{ x: number; y: number; nodeId: string; coords?: { lat: number; lng: number } } | null>(null)
@@ -131,14 +136,51 @@ export default function MapLibreMap({
       setViewport({ lat: c.lat, lng: c.lng, zoom: map.getZoom() })
     })
 
+    // Hover cursor on clickable layers
+    for (const layer of ['earthquakes-main', 'damage-points-fill']) {
+      map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer' })
+      map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = '' })
+    }
+
     map.on('click', (e) => {
+      // Priority 1: earthquake markers
+      const eqFeatures = map.queryRenderedFeatures(e.point, { layers: ['earthquakes-main'] })
+      if (eqFeatures.length > 0) {
+        const f = eqFeatures[0]
+        const coords = (f.geometry as GeoJSON.Point).coordinates
+        onSelectRef.current?.({
+          type: 'earthquake',
+          id:             String(f.properties?.id ?? ''),
+          magnitude:      Number(f.properties?.magnitude ?? 0),
+          depth:          Number(f.properties?.depth ?? 0),
+          place:          String(f.properties?.place ?? ''),
+          time:           Number(f.properties?.time ?? 0),
+          classification: String(f.properties?.classification ?? 'earthquake'),
+          lat: coords[1], lng: coords[0],
+        })
+        return
+      }
+
+      // Priority 2: damage points
+      const dmgFeatures = map.queryRenderedFeatures(e.point, { layers: ['damage-points-fill'] })
+      if (dmgFeatures.length > 0) {
+        const f = dmgFeatures[0]
+        const coords = (f.geometry as GeoJSON.Point).coordinates
+        onSelectRef.current?.({
+          type: 'damage',
+          id:             String(f.properties?.id ?? ''),
+          address:        String(f.properties?.address ?? ''),
+          damageType:     (f.properties?.damageType ?? 'unknown') as 'collapsed' | 'damaged' | 'unknown',
+          sarConfidence:  Number(f.properties?.sarConfidence ?? 0),
+          buildingType:   f.properties?.buildingType as string | undefined,
+          lat: coords[1], lng: coords[0],
+        })
+        return
+      }
+
+      // Default: targeting overlay
       const { x, y } = e.point
-      setTargeting({
-        x,
-        y,
-        nodeId: genNodeId(eventId),
-        coords: { lat: e.lngLat.lat, lng: e.lngLat.lng },
-      })
+      setTargeting({ x, y, nodeId: genNodeId(eventId), coords: { lat: e.lngLat.lat, lng: e.lngLat.lng } })
     })
 
     mapRef.current = map
