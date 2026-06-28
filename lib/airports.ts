@@ -37,7 +37,6 @@ const AIRPORTS: FlightAirport[] = [
   { icao:'SVLF', iata:'LAF', name:'Las Flecheras',              city:'Tucupita',            lat: 9.0888, lng:-62.0943, country:'Venezuela',         countryCode:'VE' },
   { icao:'SVGD', iata:'GDO', name:'Guasdualito',                city:'Guasdualito',         lat: 7.2333, lng:-70.7697, country:'Venezuela',         countryCode:'VE' },
   { icao:'SVSR', iata:'SNV', name:'Santa Elena de Uairén',      city:'Santa Elena',         lat: 4.5550, lng:-61.1500, country:'Venezuela',         countryCode:'VE' },
-  { icao:'SVMG', iata:'PMV', name:'Santiago Mariño',            city:'Porlamar',            lat:10.9126, lng:-63.9666, country:'Venezuela',         countryCode:'VE' },
   // ── Colombia ──────────────────────────────────────────────────────────────
   { icao:'SKBO', iata:'BOG', name:'El Dorado',                  city:'Bogotá',              lat: 4.7016, lng:-74.1469, country:'Colombia',          countryCode:'CO' },
   { icao:'SKRG', iata:'MDE', name:'José María Córdova',         city:'Medellín',            lat: 6.1645, lng:-75.4232, country:'Colombia',          countryCode:'CO' },

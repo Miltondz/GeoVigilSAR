@@ -440,7 +440,7 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
             const altFt   = altM != null ? Math.round(altM * 3.28084) : null
             const spdKmh  = ac.velocity != null ? Math.round(ac.velocity * 3.6) : null
             const vrSign  = ac.verticalRate != null ? (ac.verticalRate > 0 ? '▲' : ac.verticalRate < 0 ? '▼' : '►') : '—'
-            const vrMs    = ac.verticalRate != null ? `${vrSign} ${Math.abs(Math.round(ac.verticalRate * 100) / 100)} m/s` : '—'
+            const vrMs    = ac.verticalRate != null ? `${vrSign} ${Math.abs(ac.verticalRate).toFixed(1)} m/s` : '—'
             const hdg     = ac.heading != null ? `${Math.round(ac.heading)}°` : '—'
             const ago     = Math.round((Date.now() / 1000 - ac.lastContact))
             return (

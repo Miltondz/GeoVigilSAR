@@ -185,7 +185,7 @@ export default function AirTrafficLayer({ map, aircraft, visible, onSelect }: Ai
           velocity:     p.velocity,
           heading:      p.heading,
           verticalRate: p.verticalRate,
-          onGround:     p.onGround,
+          onGround:     p.onGround === true || (p.onGround as unknown) === 'true',
           originCountry:p.originCountry,
           category:     p.category,
           lastContact:  p.lastContact,

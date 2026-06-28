@@ -220,25 +220,24 @@ export default function Cesium3DGlobe({
             // Check 3D aircraft entities (id = `aircraft-3d-{icao24}`)
             if (entityId.startsWith('aircraft-3d-')) {
               const icao24 = entityId.slice(12)
-              const ac = aircraftRef.current?.find(a => a.icao24 === icao24)
-              if (ac?.longitude != null && ac?.latitude != null) {
-                onSelectRef.current?.({
-                  type:         'aircraft',
-                  icao24:       ac.icao24,
-                  callsign:     ac.callsign ?? ac.icao24,
-                  lat:          ac.latitude,
-                  lng:          ac.longitude,
-                  baroAltitude: ac.baroAltitude,
-                  velocity:     ac.velocity,
-                  heading:      ac.heading,
-                  verticalRate: ac.verticalRate,
-                  onGround:     ac.onGround,
-                  originCountry:ac.originCountry,
-                  category:     ac.category,
-                  lastContact:  ac.lastContact,
-                })
-                return
-              }
+              const ac = aircraftRef.current.find(a => a.icao24 === icao24)
+              if (ac == null || ac.longitude == null || ac.latitude == null) return
+              onSelectRef.current?.({
+                type:         'aircraft',
+                icao24:       ac.icao24,
+                callsign:     ac.callsign ?? ac.icao24,
+                lat:          ac.latitude,
+                lng:          ac.longitude,
+                baroAltitude: ac.baroAltitude,
+                velocity:     ac.velocity,
+                heading:      ac.heading,
+                verticalRate: ac.verticalRate,
+                onGround:     ac.onGround,
+                originCountry:ac.originCountry,
+                category:     ac.category,
+                lastContact:  ac.lastContact,
+              })
+              return
             }
           }
           onSelectRef.current?.(null)
@@ -887,9 +886,6 @@ export default function Cesium3DGlobe({
           },
         })
         routeEntitiesRef.current.push(dot)
-
-        // Route role badge
-        void role  // suppress unused warning — used as visual reference
       }
 
       // Route polyline on surface
