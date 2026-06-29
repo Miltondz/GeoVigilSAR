@@ -376,6 +376,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
           onSnapshot={onZoneSnapshot ?? (() => {})}
           hasSnapshot={!!currentZoneSnapshot}
           snapshotAge={currentZoneSnapshot ? Date.now() - currentZoneSnapshot.fetchedAt : undefined}
+          eventTime={getEvent(eventId).mainShockTime}
         />
       </div>
     </div>

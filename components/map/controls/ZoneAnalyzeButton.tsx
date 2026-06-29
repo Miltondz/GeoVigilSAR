@@ -11,10 +11,11 @@ interface ZoneAnalyzeButtonProps {
   viewportBbox: ViewportBbox | null
   onSnapshot: (snapshot: ZoneSnapshot) => void
   hasSnapshot: boolean
-  snapshotAge?: number   // ms since last fetch
+  snapshotAge?: number
+  eventTime?: number    // ms UTC — main shock time, used to tag before/after imagery
 }
 
-export default function ZoneAnalyzeButton({ viewportBbox, onSnapshot, hasSnapshot, snapshotAge }: ZoneAnalyzeButtonProps) {
+export default function ZoneAnalyzeButton({ viewportBbox, onSnapshot, hasSnapshot, snapshotAge, eventTime }: ZoneAnalyzeButtonProps) {
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState(false)
 
@@ -42,6 +43,7 @@ export default function ZoneAnalyzeButton({ viewportBbox, onSnapshot, hasSnapsho
         maxLat: maxLat.toFixed(4),
         minLng: minLng.toFixed(4),
         maxLng: maxLng.toFixed(4),
+        ...(eventTime ? { eventTime: String(eventTime) } : {}),
       })
       const res = await fetch(`/api/zone-analyze?${params.toString()}`)
       if (!res.ok) throw new Error('fetch failed')
