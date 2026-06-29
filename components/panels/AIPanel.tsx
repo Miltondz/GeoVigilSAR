@@ -89,6 +89,17 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
         }),
       })
 
+      if (!res.ok) {
+        let errMsg = 'Error del servidor. Intenta de nuevo.'
+        try {
+          const txt = await res.text()
+          const parsed = JSON.parse(txt) as { error?: string }
+          if (parsed.error) errMsg = parsed.error
+        } catch { /* use default */ }
+        setMessages(prev => [...prev, { role: 'system', content: errMsg }])
+        return
+      }
+
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
       let full = ''
@@ -102,7 +113,7 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
       }
 
-      setMessages(prev => [...prev, { role: 'system', content: full }])
+      setMessages(prev => [...prev, { role: 'system', content: full || 'Sin respuesta del modelo.' }])
       setStreamedText('')
     } catch {
       setMessages(prev => [...prev, { role: 'system', content: 'Error de conexión. Intenta de nuevo.' }])

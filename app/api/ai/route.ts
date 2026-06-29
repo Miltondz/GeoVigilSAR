@@ -17,16 +17,31 @@ interface AIRequest {
   context: { eventId: string; [k: string]: unknown }
 }
 
+// Status codes that mean "try next model" rather than "fatal error"
+const RETRYABLE_STATUSES = new Set([400, 404, 429, 503, 529])
+
+function streamText(text: string, modelUsed = 'none'): NextResponse {
+  const encoder = new TextEncoder()
+  const body = new ReadableStream({
+    start(c) { c.enqueue(encoder.encode(text)); c.close() },
+  })
+  return new NextResponse(body, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-cache',
+      'X-Accel-Buffering': 'no',
+      'X-Model-Used': modelUsed,
+    },
+  })
+}
+
 export async function POST(req: NextRequest) {
   const client = getAIClient()
 
   if (!client) {
-    return NextResponse.json(
-      {
-        error: 'OPENROUTER_API_KEY not configured.',
-        hint: 'Get a free key at https://openrouter.ai — add OPENROUTER_API_KEY to .env.local',
-      },
-      { status: 503 }
+    return streamText(
+      'API key no configurada. Agrega OPENROUTER_API_KEY a .env.local para activar el asistente.'
     )
   }
 
@@ -51,13 +66,15 @@ export async function POST(req: NextRequest) {
     { role: 'user' as const, content: message },
   ]
 
-  // Build fallback chain: requested model first, then remaining free models
+  // Fallback chain: requested model first, then remaining free models
   const fallbackChain = [
     requestedModel,
     ...FREE_MODEL_IDS.filter(id => id !== requestedModel),
   ]
 
   let lastErr: unknown
+  let lastStatus = 0
+
   for (const model of fallbackChain) {
     try {
       const stream = await client.chat.completions.create({
@@ -71,7 +88,6 @@ export async function POST(req: NextRequest) {
       })
 
       const encoder = new TextEncoder()
-
       const readable = new ReadableStream({
         async start(controller) {
           for await (const chunk of stream) {
@@ -83,26 +99,40 @@ export async function POST(req: NextRequest) {
       })
 
       return new NextResponse(readable, {
+        status: 200,
         headers: {
-          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Content-Type': 'text/plain; charset=utf-8',
           'Cache-Control': 'no-cache',
           'X-Accel-Buffering': 'no',
           'X-Model-Used': model,
         },
       })
     } catch (err) {
-      const status = (err as { status?: number }).status
-      if (status === 404 || status === 400) {
-        // Model unavailable — try next in chain
-        console.warn(`OpenRouter model unavailable: ${model}, trying next`)
-        lastErr = err
+      const status = (err as { status?: number }).status ?? 0
+      lastErr = err
+      lastStatus = status
+
+      if (RETRYABLE_STATUSES.has(status)) {
+        const reason =
+          status === 429 ? 'limitado por tasa' :
+          status === 503 || status === 529 ? 'sobrecargado' :
+          'no disponible'
+        console.warn(`[ai] modelo ${model} ${reason} (${status}), probando siguiente`)
         continue
       }
-      console.error('OpenRouter stream error:', err)
-      return NextResponse.json({ error: 'AI request failed' }, { status: 502 })
+
+      // Non-retryable (auth, unexpected server error, etc.)
+      console.error(`[ai] error no reintentable en ${model}:`, err)
+      return streamText('Error interno del servidor AI. Intenta de nuevo en unos minutos.')
     }
   }
 
-  console.error('All OpenRouter models exhausted:', lastErr)
-  return NextResponse.json({ error: 'No AI models available' }, { status: 502 })
+  // All models exhausted
+  console.error('[ai] todos los modelos agotados. Último error:', lastErr)
+
+  const msg = lastStatus === 429
+    ? 'Todos los modelos AI están temporalmente limitados por tasa. Intenta nuevamente en ~30 segundos.'
+    : 'Sistema AI no disponible en este momento. Intenta en unos minutos.'
+
+  return streamText(msg)
 }
