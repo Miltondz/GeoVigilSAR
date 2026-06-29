@@ -382,10 +382,7 @@ export default function Cesium3DGlobe({
         ellipse: {
           semiMajorAxis: IMPACT_RADIUS,
           semiMinorAxis: IMPACT_RADIUS,
-          material: CesiumLib.Color.fromCssColorString(C_RED).withAlpha(0.2),
-          outline: true,
-          outlineColor: CesiumLib.Color.fromCssColorString(C_RED).withAlpha(0.7),
-          outlineWidth: 2,
+          material: CesiumLib.Color.fromCssColorString(C_RED).withAlpha(0.18),
           height: 0,
         },
       })
@@ -409,16 +406,24 @@ export default function Cesium3DGlobe({
         return _waveR
       }, false)
 
+      // Wave fill alpha fades as the wave expands (brighter at origin, dim at edge)
+      let _waveAlpha = 0.35, _waveAt2 = -1
+      const waveMaterial = new CesiumLib.CallbackProperty((time?: { secondsOfDay: number }) => {
+        if (time && time.secondsOfDay !== _waveAt2) {
+          const t = ((Date.now() - waveStart) / 1000 % WAVE_PERIOD_S) / WAVE_PERIOD_S
+          _waveAlpha = Math.max(0, 0.35 * (1 - t))
+          _waveAt2 = time.secondsOfDay
+        }
+        return CesiumLib.Color.fromCssColorString(C_AMBER).withAlpha(_waveAlpha)
+      }, false)
+
       const waveEnt = viewer.entities.add({
         show: !!(activeLayers.shakemap ?? true),
         position: CesiumLib.Cartesian3.fromDegrees(epicenter.lng, epicenter.lat),
         ellipse: {
           semiMajorAxis: waveRadius,
           semiMinorAxis: waveRadius,
-          material: CesiumLib.Color.fromCssColorString(C_AMBER).withAlpha(0.08),
-          outline: true,
-          outlineColor: CesiumLib.Color.fromCssColorString(C_AMBER).withAlpha(0.35),
-          outlineWidth: 1,
+          material: new CesiumLib.ColorMaterialProperty(waveMaterial),
           height: 0,
         },
       })
@@ -583,10 +588,7 @@ export default function Cesium3DGlobe({
             ellipse: {
               semiMajorAxis: ringRadius,
               semiMinorAxis: ringRadius,
-              material:      CesiumLib.Color.TRANSPARENT,
-              outline:       true,
-              outlineColor:  ringColor,
-              outlineWidth:  outlineW,
+              material:      new CesiumLib.ColorMaterialProperty(ringColor),
               height:        0,
             },
           })
