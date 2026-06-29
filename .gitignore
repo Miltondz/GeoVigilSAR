@@ -44,3 +44,5 @@ next-env.d.ts
 /public/sar-tiles/*.tif
 /public/sar-tiles/*.tiff
 /public/sar-tiles/*.geotiff
+# Added by code-review-graph
+.code-review-graph/

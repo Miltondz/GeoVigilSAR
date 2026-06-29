@@ -32,6 +32,7 @@ interface StatsPanelProps {
   location: string
   faultSystem: string
   dataStream: StreamItem[]
+  isKnownEvent?: boolean
   onHospitalDetailOpen?: () => void
   zoneSnapshot?: ZoneSnapshot | null
   onClearZone?: () => void
@@ -59,6 +60,7 @@ export default function StatsPanel({
   location,
   faultSystem,
   dataStream,
+  isKnownEvent = true,
   onHospitalDetailOpen,
   zoneSnapshot,
   onClearZone,
@@ -131,30 +133,50 @@ export default function StatsPanel({
 
       {/* ── Stats bars ────────────────────────────────────────────────── */}
       <div style={{ padding: '0.75rem', borderBottom: '1px solid var(--color-slate)' }}>
-        <DataBar
-          value={stats.fatalities}
-          max={500}
-          label="BAJAS CONFIRMADAS"
-          displayValue={`${stats.fatalities} †`}
-          color="red"
-        />
-        <DataBar
-          value={stats.injured}
-          max={10000}
-          label="HERIDOS"
-          displayValue={`${stats.injured.toLocaleString('en-US')} ⚕`}
-          color="amber"
-        />
+        {isKnownEvent ? (
+          <>
+            <DataBar
+              value={stats.fatalities}
+              max={500}
+              label="BAJAS CONFIRMADAS"
+              displayValue={`${stats.fatalities} †`}
+              color="red"
+            />
+            <DataBar
+              value={stats.injured}
+              max={10000}
+              label="HERIDOS"
+              displayValue={`${stats.injured.toLocaleString('en-US')} ⚕`}
+              color="amber"
+            />
+            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.45rem', color: 'var(--color-muted)', marginTop: '0.125rem', marginBottom: '0.5rem' }}>
+              Fuente:{' '}
+              <a href="https://reliefweb.int/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-cyan)', textDecoration: 'none' }}>ReliefWeb</a>
+              {' · '}
+              <a href="https://www.unocha.org/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-cyan)', textDecoration: 'none' }}>OCHA</a>
+            </div>
+          </>
+        ) : (
+          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6rem', color: 'var(--color-muted)', marginBottom: '0.5rem' }}>
+            Sin evento conocido en esta zona · datos humanitarios no disponibles
+          </div>
+        )}
+
         <DataBar
           value={stats.aftershockCount}
           max={200}
-          label="RÉPLICAS REGISTRADAS"
+          label={isKnownEvent ? 'RÉPLICAS REGISTRADAS' : 'SISMOS EN VISTA'}
           displayValue={`${stats.aftershockCount} ≈`}
           color="cyan"
         />
+        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.45rem', color: 'var(--color-muted)', marginTop: '0.125rem', marginBottom: '0.5rem' }}>
+          Fuente:{' '}
+          <a href="https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-cyan)', textDecoration: 'none' }}>USGS FEED</a>
+          {' · actualización 60s'}
+        </div>
 
-        <div style={{ marginTop: '0.625rem' }}>
-          <Label>ÚLTIMA RÉPLICA</Label>
+        <div style={{ marginTop: '0.375rem' }}>
+          <Label>ÚLTIMO SISMO DETECTADO</Label>
           <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.8125rem', color: 'var(--color-text)', lineHeight: 1.5 }}>
             M{stats.lastAftershock.magnitude.toFixed(1)}
             <span style={{ color: 'var(--color-muted)', margin: '0 0.375rem' }}>·</span>

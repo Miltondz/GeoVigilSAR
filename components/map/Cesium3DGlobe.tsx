@@ -7,7 +7,8 @@ import type { SelectedMapObject } from '@/lib/types/map-selection'
 import type { SatellitePass } from '@/lib/orbits'
 import type { AircraftState } from '@/lib/opensky'
 import type { FlightRoute } from '@/lib/airports'
-import { countryFlag } from '@/lib/country-flags'
+import { countryIso2 } from '@/lib/country-flags'
+import { inferFlightRoute } from '@/lib/flight-route-infer'
 import type { AviationAirport } from '@/lib/aviationstack'
 import type { WeatherPoint } from '@/lib/open-meteo'
 import { windDirArrow, weatherCodeLabel } from '@/lib/open-meteo'
@@ -136,6 +137,13 @@ export default function Cesium3DGlobe({
   const fundingEntitiesRef    = useRef<CesiumEntity[]>([])
   const earthquakesRef  = useRef<EarthquakeMarker[]>([])
   const damagePointsRef = useRef<DamagePoint[]>([])
+  // Data refs for click handler lookup (entity arrays can't be searched by data)
+  const airportsDataRef    = useRef<AviationAirport[]>([])
+  const weatherDataRef     = useRef<WeatherPoint[]>([])
+  const buoysDataRef       = useRef<BuoyObservation[]>([])
+  const osmDataRef         = useRef<OsmFeature[]>([])
+  const usaidDataRef       = useRef<UsaidDeclaration[]>([])
+  const ftsFlowsDataRef    = useRef<FtsFlow[]>([])
   const onSelectRef     = useRef(onSelect)
   useEffect(() => { onSelectRef.current = onSelect }, [onSelect])
   const [cesiumReady, setCesiumReady] = useState(false)
@@ -206,9 +214,9 @@ export default function Cesium3DGlobe({
         // re-evaluate → rings expand and fade.
         viewer.clock.shouldAnimate = true
 
-        // Fly to damage zone (La Guaira/Caracas corridor) at 60 km for city-level view
+        // Fly to event epicenter at 600 km to show full affected region
         viewer.camera.flyTo({
-          destination: CesiumLib.Cartesian3.fromDegrees(-66.93, 10.52, 60_000),
+          destination: CesiumLib.Cartesian3.fromDegrees(epicenter.lng, epicenter.lat, 600_000),
           duration: 0,
         })
 
@@ -294,6 +302,102 @@ export default function Cesium3DGlobe({
                 originCountry:ac.originCountry,
                 category:     ac.category,
                 lastContact:  ac.lastContact,
+              })
+              return
+            }
+
+            // Airport (id = `apt-{iata}`)
+            if (entityId.startsWith('apt-')) {
+              const code = entityId.slice(4)
+              const ap = airportsDataRef.current.find(a =>
+                (a.iataCode ?? a.icaoCode ?? a.airportName) === code)
+              if (ap) {
+                onSelectRef.current?.({
+                  type: 'airport', iata: ap.iataCode ?? '', icao: ap.icaoCode ?? '',
+                  name: ap.airportName, country: ap.countryName,
+                  lat: ap.latitude, lng: ap.longitude,
+                })
+              }
+              return
+            }
+
+            // Weather station (id = `wx-{lat}-{lng}`)
+            if (entityId.startsWith('wx-')) {
+              const wp = weatherDataRef.current.find(w =>
+                entityId === `wx-${w.lat.toFixed(3)}-${w.lng.toFixed(3)}`)
+              if (wp) {
+                onSelectRef.current?.({
+                  type: 'weather', lat: wp.lat, lng: wp.lng,
+                  temp:        wp.current.temperature2m,
+                  windSpeed:   wp.current.windSpeed10m,
+                  windDir:     wp.current.windDirection10m,
+                  windGusts:   wp.current.windGusts10m,
+                  precip:      wp.current.precipitation,
+                  cloudCover:  wp.current.cloudCover,
+                  weatherCode: wp.current.weatherCode,
+                  visibility:  wp.current.visibility,
+                })
+              }
+              return
+            }
+
+            // Buoy (id = `buoy-{id}`)
+            if (entityId.startsWith('buoy-')) {
+              const bid = entityId.slice(5)
+              const b = buoysDataRef.current.find(x => x.id === bid)
+              if (b) {
+                onSelectRef.current?.({
+                  type: 'buoy', id: b.id, lat: b.lat, lng: b.lng,
+                  waveHeight: b.waveHeight, seaTemp: b.seaTemp,
+                  windSpeed: b.windSpeed, airTemp: b.airTemp, pressure: b.pressure,
+                })
+              }
+              return
+            }
+
+            // OSM feature (id = `osm-{id}`)
+            if (entityId.startsWith('osm-')) {
+              const osmId = parseInt(entityId.slice(4), 10)
+              const f = osmDataRef.current.find(x => x.id === osmId)
+              if (f) {
+                onSelectRef.current?.({
+                  type: 'osm', id: f.id,
+                  // OsmKind is a subset of the panel's kind union — safe cast
+                  kind: f.kind as 'shelter' | 'school' | 'hospital' | 'fuel' | 'police' | 'fire_station' | 'bridge' | 'helipad',
+                  name: f.name ?? f.kind,
+                  lat: f.lat, lng: f.lng, tags: f.tags,
+                })
+              }
+              return
+            }
+
+            // USAID disaster (id = `usaid-{id}`)
+            if (entityId.startsWith('usaid-')) {
+              const uid = entityId.slice(6)
+              const d = usaidDataRef.current.find(x => x.id === uid)
+              if (d && d.lat != null && d.lng != null) {
+                onSelectRef.current?.({
+                  type: 'usaid', id: d.id,
+                  lat: d.lat as number, lng: d.lng as number,
+                  country: d.country, disasterType: d.disasterType,
+                  declarationDate: d.declarationDate, status: d.status,
+                  fundingUsd: d.fundingUsd, description: d.description,
+                })
+              }
+              return
+            }
+
+            // Funding donor node (id = `funding-{org}`)
+            if (entityId.startsWith('funding-')) {
+              const org = entityId.slice(8)
+              const pos = getDonorPosition(org)
+              const total = ftsFlowsDataRef.current
+                .filter(f => f.sourceOrg === org)
+                .reduce((s, f) => s + f.amountUsd, 0)
+              onSelectRef.current?.({
+                type: 'funding', organization: org,
+                totalUsd: total,
+                lat: pos?.lat ?? 0, lng: pos?.lng ?? 0,
               })
               return
             }
@@ -670,20 +774,51 @@ export default function Cesium3DGlobe({
 
       if (!(activeLayers.damagePoints ?? true)) return
 
+      // Build SVG data URLs for building icons (same design as DamagePointsLayer 2D)
+      const buildingUrl = (type: 'collapsed' | 'damaged' | 'unknown') => {
+        const fill   = type === 'collapsed' ? '#FF4444' : type === 'damaged' ? '#FFB800' : '#607080'
+        const stroke = type === 'collapsed' ? '#CC0000' : type === 'damaged' ? '#CC8800' : '#405060'
+        const cross  = type === 'collapsed'
+          ? `<line x1="4" y1="10" x2="20" y2="24" stroke="${stroke}" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+             <line x1="20" y1="10" x2="4" y2="24" stroke="${stroke}" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>`
+          : ''
+        const crack  = type === 'collapsed'
+          ? `<line x1="9" y1="12" x2="13" y2="18" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round"/>
+             <line x1="13" y1="15" x2="17" y2="12" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round"/>`
+          : type === 'damaged'
+          ? `<line x1="11" y1="13" x2="13" y2="19" stroke="${stroke}" stroke-width="1.2" stroke-linecap="round"/>`
+          : ''
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="28" viewBox="0 0 24 28">
+          <polygon points="12,1 1,10 23,10" fill="${fill}" opacity="0.95"/>
+          <rect x="2" y="10" width="20" height="16" fill="${fill}" opacity="0.9" rx="0.5"/>
+          <rect x="4" y="12" width="5" height="4" fill="#000A0F" opacity="0.45" rx="0.5"/>
+          <rect x="4" y="18" width="5" height="4" fill="#000A0F" opacity="0.45" rx="0.5"/>
+          <rect x="15" y="12" width="5" height="4" fill="#000A0F" opacity="0.45" rx="0.5"/>
+          <rect x="15" y="18" width="5" height="4" fill="#000A0F" opacity="0.45" rx="0.5"/>
+          <rect x="9" y="21" width="6" height="5" fill="#000A0F" opacity="0.5" rx="0.5"/>
+          ${cross}${crack}
+          <polygon points="12,1 1,10 23,10" fill="none" stroke="#E0E8F0" stroke-width="0.6" opacity="0.6"/>
+          <rect x="2" y="10" width="20" height="16" fill="none" stroke="#E0E8F0" stroke-width="0.6" opacity="0.6" rx="0.5"/>
+        </svg>`
+        return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+      }
+
       for (const pt of damagePoints) {
-        const hex = pt.damageType === 'collapsed' ? C_RED : C_AMBER
+        const hex   = pt.damageType === 'collapsed' ? C_RED : C_AMBER
         const color = CesiumLib.Color.fromCssColorString(hex)
-        const size  = pt.damageType === 'collapsed' ? 12 : 9
 
         const ent = viewer.entities.add({
-          id:       `damage-${pt.id}`,  // prefixed so click handler can identify
+          id:       `damage-${pt.id}`,
           show:     true,
           position: CesiumLib.Cartesian3.fromDegrees(pt.lng, pt.lat),
-          point: {
-            pixelSize:    size,
-            color,
-            outlineColor: CesiumLib.Color.BLACK,
-            outlineWidth: 1,
+          billboard: {
+            image:          buildingUrl(pt.damageType),
+            width:          24,
+            height:         28,
+            verticalOrigin: CesiumLib.VerticalOrigin.BOTTOM,
+            heightReference:CesiumLib.HeightReference.CLAMP_TO_GROUND,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            distanceDisplayCondition: new CesiumLib.DistanceDisplayCondition(0, 500_000),
           },
           label: {
             text:         pt.address,
@@ -692,9 +827,9 @@ export default function Cesium3DGlobe({
             outlineColor: CesiumLib.Color.BLACK,
             outlineWidth: 2,
             style:        CesiumLib.LabelStyle.FILL_AND_OUTLINE,
-            pixelOffset:  new CesiumLib.Cartesian2(0, -18),
+            pixelOffset:  new CesiumLib.Cartesian2(0, -32),
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            distanceDisplayCondition: new CesiumLib.DistanceDisplayCondition(0, 400_000),
+            distanceDisplayCondition: new CesiumLib.DistanceDisplayCondition(0, 200_000),
           },
         })
         damageEntitiesRef.current.push(ent)
@@ -890,22 +1025,23 @@ export default function Cesium3DGlobe({
 
       for (const ac of aircraft) {
         if (ac.longitude == null || ac.latitude == null) continue
-        const altM = ac.baroAltitude != null ? ac.baroAltitude : 0
-        const flag = countryFlag(ac.originCountry)
+        // Clamp to ground for 2D/3D position consistency — altitude causes perspective shift
+        const iso2 = countryIso2(ac.originCountry) || ac.originCountry.slice(0, 2).toUpperCase()
         const callsign = ac.callsign ?? ac.icao24
 
         const ent = viewer.entities.add({
           id:       `aircraft-3d-${ac.icao24}`,
-          position: CesiumLib.Cartesian3.fromDegrees(ac.longitude, ac.latitude, altM),
+          position: CesiumLib.Cartesian3.fromDegrees(ac.longitude, ac.latitude, 0),
           point: {
             pixelSize:                8,
             color:                    CesiumLib.Color.fromCssColorString(ac.onGround ? '#607080' : '#00B4FF'),
             outlineColor:             CesiumLib.Color.WHITE,
             outlineWidth:             1,
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            heightReference:          CesiumLib.HeightReference.CLAMP_TO_GROUND,
           },
           label: {
-            text:                     `${flag} ${callsign}`,
+            text:                     `[${iso2}] ${callsign}`,
             font:                     '10px monospace',
             fillColor:                CesiumLib.Color.fromCssColorString('#00B4FF'),
             outlineColor:             CesiumLib.Color.BLACK,
@@ -917,6 +1053,26 @@ export default function Cesium3DGlobe({
           },
         })
         aircraftEntitiesRef.current.push(ent)
+      }
+
+      // All-aircraft route polylines (inferred from heading)
+      for (const ac of aircraft) {
+        if (ac.onGround || ac.longitude == null || ac.latitude == null) continue
+        const { departure, arrival } = inferFlightRoute(ac)
+        if (!departure || !arrival) continue
+        const line = viewer.entities.add({
+          polyline: {
+            positions: CesiumLib.Cartesian3.fromDegreesArray([
+              departure.lng, departure.lat,
+              ac.longitude,  ac.latitude,
+              arrival.lng,   arrival.lat,
+            ]),
+            width:         0.8,
+            material:      CesiumLib.Color.fromCssColorString('#00B4FF').withAlpha(0.18),
+            clampToGround: true,
+          },
+        })
+        aircraftEntitiesRef.current.push(line)
       }
     }
 
@@ -946,7 +1102,7 @@ export default function Cesium3DGlobe({
 
       for (const { ap, role, color } of airports) {
         if (!ap) continue
-        const flag = countryFlag(ap.country)
+        const iso2 = countryIso2(ap.country) || ap.countryCode || '??'
 
         const dot = viewer.entities.add({
           position: CesiumLib.Cartesian3.fromDegrees(ap.lng, ap.lat, 0),
@@ -959,7 +1115,7 @@ export default function Cesium3DGlobe({
             heightReference:          CesiumLib.HeightReference.CLAMP_TO_GROUND,
           },
           label: {
-            text:                     `${flag} ${ap.iata ?? ap.icao} · ${ap.city}`,
+            text:                     `[${iso2}] ${ap.iata ?? ap.icao} · ${ap.city}`,
             font:                     '11px monospace',
             fillColor:                CesiumLib.Color.fromCssColorString(color),
             outlineColor:             CesiumLib.Color.BLACK,
@@ -1005,9 +1161,11 @@ export default function Cesium3DGlobe({
       if (viewer.isDestroyed()) return
       for (const ent of airportEntitiesRef.current) viewer.entities.remove(ent)
       airportEntitiesRef.current = []
+      airportsDataRef.current = airports
       if (!show || airports.length === 0) return
       for (const ap of airports) {
         const ent = viewer.entities.add({
+          id:       `apt-${ap.iataCode ?? ap.icaoCode ?? ap.airportName}`,
           position: CesiumLib.Cartesian3.fromDegrees(ap.longitude, ap.latitude, 10),
           point: {
             pixelSize: 9,
@@ -1045,11 +1203,13 @@ export default function Cesium3DGlobe({
       if (viewer.isDestroyed()) return
       for (const ent of weatherEntitiesRef.current) viewer.entities.remove(ent)
       weatherEntitiesRef.current = []
+      weatherDataRef.current = weatherPoints
       if (!show || weatherPoints.length === 0) return
       for (const wp of weatherPoints) {
         const arrow = windDirArrow(wp.current.windDirection10m)
         const label = weatherCodeLabel(wp.current.weatherCode, 'es')
         const ent = viewer.entities.add({
+          id:       `wx-${wp.lat.toFixed(3)}-${wp.lng.toFixed(3)}`,
           position: CesiumLib.Cartesian3.fromDegrees(wp.lng, wp.lat, 500),
           point: {
             pixelSize: 8,
@@ -1088,10 +1248,12 @@ export default function Cesium3DGlobe({
       if (viewer.isDestroyed()) return
       for (const ent of buoyEntitiesRef.current) viewer.entities.remove(ent)
       buoyEntitiesRef.current = []
+      buoysDataRef.current = buoys
       if (!show || buoys.length === 0) return
       for (const b of buoys) {
         const sz = b.waveHeight !== null ? Math.max(5, Math.min(14, 5 + b.waveHeight * 1.2)) : 7
         const ent = viewer.entities.add({
+          id:       `buoy-${b.id}`,
           position: CesiumLib.Cartesian3.fromDegrees(b.lng, b.lat, 0),
           point: {
             pixelSize: sz,
@@ -1134,10 +1296,12 @@ export default function Cesium3DGlobe({
       if (viewer.isDestroyed()) return
       for (const ent of osmEntitiesRef.current) viewer.entities.remove(ent)
       osmEntitiesRef.current = []
+      osmDataRef.current = osmFeatures
       if (!show || osmFeatures.length === 0) return
       for (const f of osmFeatures) {
         const color = COLOR_MAP[f.kind] ?? '#607080'
         const ent = viewer.entities.add({
+          id:       `osm-${f.id}`,
           position: CesiumLib.Cartesian3.fromDegrees(f.lng, f.lat, 10),
           point: {
             pixelSize: 7,
@@ -1217,11 +1381,13 @@ export default function Cesium3DGlobe({
       if (viewer.isDestroyed()) return
       for (const ent of usaidEntitiesRef.current) viewer.entities.remove(ent)
       usaidEntitiesRef.current = []
+      usaidDataRef.current = usaidDeclarations
       if (!show || usaidDeclarations.length === 0) return
       for (const d of usaidDeclarations) {
         if (d.lat === null || d.lng === null) continue
         const color = d.status === 'active' ? '#00FF88' : '#607080'
         const ent = viewer.entities.add({
+          id:       `usaid-${d.id}`,
           position: CesiumLib.Cartesian3.fromDegrees(d.lng as number, d.lat as number, 0),
           point: {
             pixelSize: 10,
@@ -1260,6 +1426,7 @@ export default function Cesium3DGlobe({
       if (viewer.isDestroyed()) return
       for (const ent of fundingEntitiesRef.current) viewer.entities.remove(ent)
       fundingEntitiesRef.current = []
+      ftsFlowsDataRef.current = ftsFlows
       if (!show || ftsFlows.length === 0) return
       const donors = topDonors(ftsFlows, 12)
       for (const donor of donors) {
@@ -1291,6 +1458,7 @@ export default function Cesium3DGlobe({
 
         // Donor node
         const node = viewer.entities.add({
+          id:       `funding-${donor.org}`,
           position: CesiumLib.Cartesian3.fromDegrees(pos.lng, pos.lat, 0),
           point: {
             pixelSize: 7,

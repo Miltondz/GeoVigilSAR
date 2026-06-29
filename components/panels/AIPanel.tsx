@@ -11,6 +11,8 @@ interface Message {
 interface AIPanelProps {
   eventId: string
   isConnected?: boolean
+  viewportLocation?: string
+  isKnownEvent?: boolean
 }
 
 const SUGGESTED = [
@@ -31,7 +33,7 @@ interface NewsItem {
   lang?: string
 }
 
-export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) {
+export default function AIPanel({ eventId, isConnected = false, viewportLocation, isKnownEvent = true }: AIPanelProps) {
   const welcomeContent = buildWelcome(eventId)
   const [messages, setMessages]           = useState<Message[]>([{ role: 'system', content: welcomeContent }])
   const [input, setInput]                 = useState('')
@@ -85,7 +87,7 @@ export default function AIPanel({ eventId, isConnected = false }: AIPanelProps) 
           history: messages
             .filter(m => m.role !== 'system')
             .map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
-          context: { eventId },
+          context: { eventId, viewportLocation, isKnownEvent },
         }),
       })
 

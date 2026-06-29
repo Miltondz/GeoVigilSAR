@@ -72,6 +72,24 @@ function usePlaceNews(keyword: string, eventId: string) {
   return items
 }
 
+// Fetch aircraft thumbnail from Planespotters.net (browser-side, CORS-enabled public API)
+function usePlanespottersPhoto(icao24: string | null) {
+  const [src, setSrc] = useState<string | null>(null)
+  useEffect(() => {
+    if (!icao24) { setSrc(null); return }
+    setSrc(null)
+    const ctrl = new AbortController()
+    fetch(`https://api.planespotters.net/pub/photos/hex/${icao24.toUpperCase()}`, { signal: ctrl.signal })
+      .then(r => r.json())
+      .then((d: { photos?: Array<{ thumbnail?: { src: string } }> }) => {
+        setSrc(d.photos?.[0]?.thumbnail?.src ?? null)
+      })
+      .catch(() => {})
+    return () => ctrl.abort()
+  }, [icao24])
+  return src
+}
+
 function useMapillary(lat: number, lng: number, enabled: boolean) {
   const [before, setBefore] = useState<MapillaryImage[]>([])
   const [after, setAfter]   = useState<MapillaryImage[]>([])
@@ -210,6 +228,8 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
   const [saved, setSaved] = useState(false)
   const [pos, setPos] = useState({ x: 20, y: 60 })
   const drag = useRef({ on: false, ox: 0, oy: 0, px: 0, py: 0 })
+  const acIcao24 = object?.type === 'aircraft' ? object.icao24 : null
+  const planespottersPhoto = usePlanespottersPhoto(acIcao24)
 
   // Position to top-right on mount
   useEffect(() => {
@@ -538,10 +558,22 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
             const ago     = Math.round((Date.now() / 1000 - ac.lastContact))
             return (
               <>
-                {/* ── Silhouette + type row ────────────────────────── */}
+                {/* ── Silhouette + photo + type row ────────────────── */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.375rem 0', borderTop: '1px solid var(--color-slate)', borderBottom: '1px solid var(--color-slate)' }}>
-                  <div style={{ flexShrink: 0 }}>
-                    <AircraftSilhouette category={ac.category} size={52} color="var(--color-cyan)" />
+                  <div style={{ flexShrink: 0, position: 'relative' }}>
+                    {planespottersPhoto ? (
+                      // Real aircraft photo from Planespotters.net
+                      <img
+                        src={planespottersPhoto}
+                        alt="aircraft"
+                        width={72}
+                        height={52}
+                        style={{ display: 'block', objectFit: 'cover', border: '1px solid var(--color-slate)' }}
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                      />
+                    ) : (
+                      <AircraftSilhouette category={ac.category} size={52} color="var(--color-cyan)" />
+                    )}
                   </div>
                   <div>
                     <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', letterSpacing: '0.1em', marginBottom: 4 }}>TIPO AERONAVE</div>

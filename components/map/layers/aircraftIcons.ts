@@ -17,9 +17,14 @@ function makeSVG(body: string, color: string): string {
   </svg>`
 }
 
-// Generic aircraft — filled triangle pointing up
+// Commercial jet top-down: nose at top (heading 0°=north=up), swept wings + tail fins
 const AIRCRAFT_BODY = `
-  <polygon points="12,2 20,20 12,16 4,20" fill="COLOR" opacity="0.9"/>
+  <ellipse cx="12" cy="13" rx="2" ry="11" fill="COLOR" opacity="0.95"/>
+  <polygon points="12,1 10,5 14,5" fill="COLOR"/>
+  <polygon points="12,12 1,18 1,20 11,16" fill="COLOR" opacity="0.88"/>
+  <polygon points="12,12 23,18 23,20 13,16" fill="COLOR" opacity="0.88"/>
+  <polygon points="12,22 7,24 7,24 11,23" fill="COLOR" opacity="0.82"/>
+  <polygon points="12,22 17,24 17,24 13,23" fill="COLOR" opacity="0.82"/>
 `
 
 // Rotorcraft — circle with cross blades

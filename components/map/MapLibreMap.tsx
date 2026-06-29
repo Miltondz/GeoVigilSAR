@@ -200,32 +200,12 @@ export default function MapLibreMap({
       viewportTimerRef.current = setTimeout(emitBbox, 600)
     })
 
-    // Hover cursor on clickable layers
-    for (const layer of ['earthquakes-main', 'damage-points-fill']) {
-      map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer' })
-      map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = '' })
-    }
+    // Hover cursor on damage points (earthquakes + clusters handled in EarthquakeLayer)
+    map.on('mouseenter', 'damage-points-fill', () => { map.getCanvas().style.cursor = 'pointer' })
+    map.on('mouseleave', 'damage-points-fill', () => { map.getCanvas().style.cursor = '' })
 
     map.on('click', (e) => {
-      // Priority 1: earthquake markers
-      const eqFeatures = map.queryRenderedFeatures(e.point, { layers: ['earthquakes-main'] })
-      if (eqFeatures.length > 0) {
-        const f = eqFeatures[0]
-        const coords = (f.geometry as GeoJSON.Point).coordinates
-        onSelectRef.current?.({
-          type: 'earthquake',
-          id:             String(f.properties?.id ?? ''),
-          magnitude:      Number(f.properties?.magnitude ?? 0),
-          depth:          Number(f.properties?.depth ?? 0),
-          place:          String(f.properties?.place ?? ''),
-          time:           Number(f.properties?.time ?? 0),
-          classification: String(f.properties?.classification ?? 'earthquake'),
-          lat: coords[1], lng: coords[0],
-        })
-        return
-      }
-
-      // Priority 2: damage points
+      // Priority 1: damage points
       const dmgFeatures = map.queryRenderedFeatures(e.point, { layers: ['damage-points-fill'] })
       if (dmgFeatures.length > 0) {
         const f = dmgFeatures[0]
@@ -242,7 +222,10 @@ export default function MapLibreMap({
         return
       }
 
-      // Default: targeting overlay
+      // Default: targeting overlay (only if no layer-specific handler caught this click)
+      const eqHit    = map.queryRenderedFeatures(e.point, { layers: ['earthquakes-main', 'clusters', 'osm-infra-circle', 'air-traffic-symbols'] })
+      if (eqHit.length > 0) return // let layer-specific handlers deal with it
+
       const { x, y } = e.point
       setTargeting({ x, y, nodeId: genNodeId(eventId), coords: { lat: e.lngLat.lat, lng: e.lngLat.lng } })
     })
@@ -498,6 +481,7 @@ export default function MapLibreMap({
               visible={activeLayers.epicenters || activeLayers.aftershocks}
               showAfterShocks={activeLayers.aftershocks}
               mapActive={mapActive}
+              onSelect={onSelectRef.current ?? undefined}
             />
             <ShakeMapLayer
               map={mapRef.current}

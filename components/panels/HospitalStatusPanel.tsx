@@ -24,6 +24,7 @@ interface HospitalStatusPanelProps {
   visible: boolean
   onClose: () => void
   eventId: string
+  onSelectHospital?: (lat: number, lng: number, id: string, name: string) => void
 }
 
 const statusBadge: Record<'GREEN' | 'AMBER' | 'RED', { label: string; color: string; bg: string }> = {
@@ -32,7 +33,7 @@ const statusBadge: Record<'GREEN' | 'AMBER' | 'RED', { label: string; color: str
   RED:   { label: 'NO OPERATIVO', color: '#ffffff', bg: 'var(--color-red)'   },
 }
 
-export default function HospitalStatusPanel({ visible, onClose, eventId }: HospitalStatusPanelProps) {
+export default function HospitalStatusPanel({ visible, onClose, eventId, onSelectHospital }: HospitalStatusPanelProps) {
   const [hospitals, setHospitals] = useState<HospitalWithDistance[]>([])
   const [loading, setLoading] = useState(true)
   const [analyzing, setAnalyzing] = useState<string | null>(null)
@@ -139,12 +140,14 @@ export default function HospitalStatusPanel({ visible, onClose, eventId }: Hospi
           return (
             <div
               key={h.osmId}
+              onClick={() => onSelectHospital?.(h.lat, h.lng, h.osmId, h.name)}
               style={{
                 padding: '0.5rem',
                 borderBottom: '1px solid var(--color-slate)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.25rem',
+                cursor: onSelectHospital ? 'pointer' : 'default',
               }}
             >
               {/* Name */}

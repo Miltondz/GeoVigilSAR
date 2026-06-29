@@ -41,8 +41,10 @@ export async function GET(req: NextRequest) {
     ? event.usgsQuery.startTime
     : new Date(Date.now() - THIRTY_DAYS_MS).toISOString().slice(0, 19)
 
+  const defaultEndTime = isNearEvent ? event.usgsQuery.endTime : undefined
+
   const startTime = startParam ? `${startParam}T00:00:00` : defaultStartTime
-  const endTime   = endParam   ? `${endParam}T23:59:59`   : undefined
+  const endTime   = endParam   ? `${endParam}T23:59:59`   : defaultEndTime ? `${defaultEndTime}T23:59:59` : undefined
 
   try {
     const raw = await fetchUSGSEarthquakes(bbox, {
@@ -55,7 +57,6 @@ export async function GET(req: NextRequest) {
     const earthquakes = raw.map(f => ({
       ...f,
       eventId,
-      // Only apply event-specific classification when near event epicenter
       classification: isNearEvent
         ? classifyEarthquake(f, event.mainShockTime, event.mainShockMagnitude)
         : 'earthquake',

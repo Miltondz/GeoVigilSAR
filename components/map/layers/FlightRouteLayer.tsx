@@ -3,12 +3,21 @@
 // Renders departure/arrival airport markers + route line for a selected flight.
 // Visible only when an aircraft is selected and flightRoute has airport data.
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { Map as MapLibreMap, GeoJSONSource } from 'maplibre-gl'
 import type { FlightRoute } from '@/lib/airports'
 import type { AircraftState } from '@/lib/opensky'
 import { countryFlag } from '@/lib/country-flags'
 import { isMapAlive } from './mapUtils'
+
+// 14-frame marching ants cycle for the planned (future) route segment
+// Each frame array sums to 7 (3 dash + 4 gap) — MapLibre shifts the dasharray pattern
+const DASH_FRAMES: number[][] = [
+  [0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5],
+  [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0],
+  [0, 3, 0.5, 3.5], [0, 2.5, 1, 3.5], [0, 2, 1.5, 3.5],
+  [0, 1.5, 2, 3.5], [0, 1, 2.5, 3.5], [0, 0.5, 3, 3.5], [0, 0, 3.5, 3.5],
+]
 
 const SRC_AIRPORTS = 'flight-route-airports'
 const SRC_LINE     = 'flight-route-line'
@@ -106,6 +115,9 @@ export default function FlightRouteLayer({
   aircraft,
   visible,
 }: FlightRouteLayerProps) {
+
+  const dashFrameRef = useRef(0)
+  const dashIntRef   = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Setup sources + layers once on mount
   useEffect(() => {
@@ -237,6 +249,29 @@ export default function FlightRouteLayer({
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', n)
     })
   }, [map, visible])
+
+  // Marching ants animation on the planned (future) route segment
+  useEffect(() => {
+    const hasRoute = visible && flightRoute && (flightRoute.departure || flightRoute.arrival)
+    if (hasRoute) {
+      if (dashIntRef.current) clearInterval(dashIntRef.current)
+      dashFrameRef.current = 0
+      dashIntRef.current = setInterval(() => {
+        dashFrameRef.current = (dashFrameRef.current + 1) % DASH_FRAMES.length
+        if (isMapAlive(map) && map.getLayer(LYR_PLANNED)) {
+          map.setPaintProperty(LYR_PLANNED, 'line-dasharray', DASH_FRAMES[dashFrameRef.current])
+        }
+      }, 100)
+    } else {
+      if (dashIntRef.current) { clearInterval(dashIntRef.current); dashIntRef.current = null }
+      if (isMapAlive(map) && map.getLayer(LYR_PLANNED)) {
+        map.setPaintProperty(LYR_PLANNED, 'line-dasharray', [3, 3])
+      }
+    }
+    return () => {
+      if (dashIntRef.current) { clearInterval(dashIntRef.current); dashIntRef.current = null }
+    }
+  }, [map, visible, flightRoute])
 
   return null
 }

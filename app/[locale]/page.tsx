@@ -91,6 +91,11 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const isMobile = useIsMobile()
   const [mobileTab, setMobileTab] = useState<'map' | 'stats' | 'ai'>('map')
 
+  // Default to 2D on mobile — Cesium 3D is resource-heavy on phones
+  useEffect(() => {
+    if (isMobile) setViewMode('2d')
+  }, [isMobile])
+
   useEffect(() => {
     setHumanStats(null)
     fetch(`/api/humanitarian?eventId=${activeEventId}`)
@@ -199,22 +204,41 @@ export default function DashboardPage({ params }: { params: { locale: string } }
     [liveEarthquakes]
   )
 
+  // True only when viewport center is inside (or near) a known event's bbox
+  const isKnownEventArea = useMemo(() => {
+    if (!viewportBbox) return true
+    const cLat = (viewportBbox.minLat + viewportBbox.maxLat) / 2
+    const cLng = (viewportBbox.minLng + viewportBbox.maxLng) / 2
+    const pad = 5
+    return Object.values(EVENT_REGISTRY).some(ev =>
+      cLat >= ev.bbox.minLat - pad && cLat <= ev.bbox.maxLat + pad &&
+      cLng >= ev.bbox.minLng - pad && cLng <= ev.bbox.maxLng + pad
+    )
+  }, [viewportBbox])
+
   const stats = useMemo(() => {
     const lastEq = sortedEqs[0]
     return {
-      fatalities:     humanStats?.fatalities ?? 0,
-      injured:        humanStats?.injured ?? 0,
+      fatalities:     isKnownEventArea ? (humanStats?.fatalities ?? 0) : 0,
+      injured:        isKnownEventArea ? (humanStats?.injured ?? 0)    : 0,
       aftershockCount: liveEarthquakes.length,
       lastAftershock: lastEq
         ? { magnitude: lastEq.magnitude, place: lastEq.place, hoursAgo: Math.round((Date.now() - lastEq.time) / 3_600_000) }
         : { magnitude: 0, place: '—', hoursAgo: 0 },
     }
-  }, [humanStats, liveEarthquakes, sortedEqs])
+  }, [humanStats, liveEarthquakes, sortedEqs, isKnownEventArea])
 
-  const mainShocks = useMemo(
-    () => event.mainShocks ?? [{ magnitude: event.mainShockMagnitude, timeStr: new Date(event.mainShockTime).toISOString().slice(11, 16) + ' UTC', depth: 10 }],
-    [event]
-  )
+  // When outside known events, derive "mainshock" from the largest live earthquake
+  const mainShocks = useMemo(() => {
+    if (isKnownEventArea) {
+      return event.mainShocks ?? [{ magnitude: event.mainShockMagnitude, timeStr: new Date(event.mainShockTime).toISOString().slice(11, 16) + ' UTC', depth: 10 }]
+    }
+    const top = [...liveEarthquakes].sort((a, b) => b.magnitude - a.magnitude).slice(0, 2)
+    return top.map(eq => ({ magnitude: eq.magnitude, timeStr: new Date(eq.time).toISOString().slice(11, 16) + ' UTC', depth: eq.depth }))
+  }, [event, isKnownEventArea, liveEarthquakes])
+
+  const displayEventId = isKnownEventArea ? activeEventId : 'ZONA EN VISTA'
+  const displayFaultSystem = isKnownEventArea ? event.faultSystem : ''
 
   const dataStream = useMemo(
     () => sortedEqs.slice(0, 10).map(eq => ({
@@ -230,12 +254,13 @@ export default function DashboardPage({ params }: { params: { locale: string } }
 
   const statsPanel = (
     <StatsPanel
-      eventId={activeEventId}
+      eventId={displayEventId}
       stats={stats}
       mainShocks={mainShocks}
       location={viewportLocation}
-      faultSystem={event.faultSystem}
+      faultSystem={displayFaultSystem}
       dataStream={dataStream}
+      isKnownEvent={isKnownEventArea}
       onHospitalDetailOpen={() => setHospitalPanelOpen(true)}
       zoneSnapshot={zoneSnapshot}
       onClearZone={() => { setZoneSnapshot(null); setZoneDetailOpen(false) }}
@@ -243,7 +268,12 @@ export default function DashboardPage({ params }: { params: { locale: string } }
     />
   )
 
-  const aiPanel = <AIPanel eventId={activeEventId} isConnected={true} />
+  const aiPanel = <AIPanel
+    eventId={activeEventId}
+    isConnected={true}
+    viewportLocation={viewportLocation}
+    isKnownEvent={isKnownEventArea}
+  />
 
   const mapEl = (
     <GeoVigilMap
@@ -266,10 +296,9 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   )
 
   return (
-    <div style={{
+    <div className="app-root" style={{
       display: 'flex',
       flexDirection: 'column',
-      height: '100vh',
       backgroundColor: 'var(--color-bg)',
       overflow: 'hidden',
       position: 'relative',
@@ -316,7 +345,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
       {isMobile && (
         <>
           {/* Map always mounted (data loading), always behind sheets */}
-          <div style={{ flex: 1, position: 'relative', overflow: 'hidden', touchAction: 'none' }}>
+          <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden', touchAction: 'none' }}>
             {mapEl}
           </div>
 
@@ -399,6 +428,10 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         visible={hospitalPanelOpen}
         onClose={() => setHospitalPanelOpen(false)}
         eventId={activeEventId}
+        onSelectHospital={(lat, lng, _id, name) => {
+          setMapTarget({ lat, lng, name })
+          setHospitalPanelOpen(false)
+        }}
       />
 
       <SituationReportModal

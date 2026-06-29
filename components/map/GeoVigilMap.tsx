@@ -123,18 +123,34 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
     setFlightRoute(null)
   }, [])
 
-  // Fetch USGS earthquakes — re-triggers when viewport bbox changes
+  // Fetch USGS earthquakes.
+  // Within the event bbox → always use event bbox (stable, no re-fetch on pan).
+  // Outside event bbox → use viewport bbox with 30-day rolling window (dynamic discovery).
+  // Only "dataRegion" changes trigger a re-fetch, not every small pan.
+  const [dataRegion, setDataRegion] = useState<'event' | ViewportBbox>('event')
+  useEffect(() => {
+    if (!viewportBbox) return
+    const ev = getEvent(eventId).bbox
+    const centerLat = (viewportBbox.minLat + viewportBbox.maxLat) / 2
+    const centerLng = (viewportBbox.minLng + viewportBbox.maxLng) / 2
+    const insideEvent = (
+      centerLat >= ev.minLat && centerLat <= ev.maxLat &&
+      centerLng >= ev.minLng && centerLng <= ev.maxLng
+    )
+    setDataRegion(insideEvent ? 'event' : viewportBbox)
+  }, [eventId, viewportBbox])
+
   useEffect(() => {
     const load = async () => {
       try {
         const params = new URLSearchParams({ eventId })
         if (dateFilter?.start) params.set('startTime', dateFilter.start)
         if (dateFilter?.end)   params.set('endTime',   dateFilter.end)
-        if (viewportBbox) {
-          params.set('minLat', viewportBbox.minLat.toFixed(4))
-          params.set('maxLat', viewportBbox.maxLat.toFixed(4))
-          params.set('minLng', viewportBbox.minLng.toFixed(4))
-          params.set('maxLng', viewportBbox.maxLng.toFixed(4))
+        if (dataRegion !== 'event') {
+          params.set('minLat', dataRegion.minLat.toFixed(4))
+          params.set('maxLat', dataRegion.maxLat.toFixed(4))
+          params.set('minLng', dataRegion.minLng.toFixed(4))
+          params.set('maxLng', dataRegion.maxLng.toFixed(4))
         }
         const res = await fetch(`/api/earthquakes?${params.toString()}`)
         if (!res.ok) return
@@ -148,7 +164,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
     load()
     const id = setInterval(load, 60000)
     return () => clearInterval(id)
-  }, [eventId, onEarthquakesLoaded, dateFilter, viewportBbox])
+  }, [eventId, onEarthquakesLoaded, dateFilter, dataRegion])
 
   // Fetch + poll air traffic (60s — stays within OpenSky anon quota)
   useEffect(() => {
@@ -171,11 +187,18 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
     if (selectedObject?.type !== 'aircraft') { setFlightRoute(null); return }
     const icao24 = selectedObject.icao24
     setFlightRoute(null)
-    fetch(`/api/aircraft/${icao24}`)
+    // Pass current position + heading so the API can infer route when no credentials
+    const ac = aircraft.find(a => a.icao24 === icao24)
+    const params = new URLSearchParams()
+    if (ac?.latitude != null)  params.set('lat',     ac.latitude.toString())
+    if (ac?.longitude != null) params.set('lng',     ac.longitude.toString())
+    if (ac?.heading != null)   params.set('heading', ac.heading.toString())
+    if (ac?.velocity != null)  params.set('speed',   ac.velocity.toString())
+    fetch(`/api/aircraft/${icao24}?${params.toString()}`)
       .then(r => r.json())
       .then((d: FlightRoute) => setFlightRoute(d))
       .catch(() => {})
-  }, [selectedObject])
+  }, [selectedObject, aircraft])
 
   // Airports — load once on mount (30-day cache, static fallback)
   useEffect(() => {
@@ -270,7 +293,8 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLayers.funding])
 
-  const epicenter                = getEvent(eventId).epicenter
+  const eventCfg                = getEvent(eventId)
+  const epicenter               = eventCfg.epicenter
   const selectedAircraftIcao24  = selectedObject?.type === 'aircraft' ? selectedObject.icao24 : null
 
   return (
@@ -291,6 +315,8 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
             activeLayers={activeLayers}
             eventId={eventId}
             earthquakes={earthquakes}
+            center={[epicenter.lng, epicenter.lat]}
+            zoom={eventCfg.initialZoom}
             mapActive={viewMode === '2d'}
             timelinePhase={timelinePhase}
             timelineMs={timelineMs}

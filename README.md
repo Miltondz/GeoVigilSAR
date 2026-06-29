@@ -57,14 +57,15 @@ Tactical operations room (HUD aesthetic) combining real-time seismic feeds, sate
 
 | Source | Data | Update |
 |---|---|---|
-| OpenSky Network | ADS-B aircraft states (rescue helicopters, humanitarian flights) | 30 s polling |
+| OpenSky Network | ADS-B aircraft states (rescue helicopters, humanitarian flights) | 60 s |
 | CelesTrak (TLE) | Sentinel-1A/1B/1C orbital passes over Venezuela | 12 hr |
 
-### Cartography / Geocoding
+### Cartography / Infrastructure
 
 | Source | Data | Update |
 |---|---|---|
-| Nominatim (OSM) | Geocoding — zone search bounded to Venezuela bbox | On demand |
+| Overpass API (OSM) | Hospitals, helipads, shelters, schools, fuel, police, fire stations | On viewport change |
+| Nominatim (OSM) | Geocoding — zone search bounded to event bbox | On demand |
 | MapLibre GL JS + demotiles | Vector base map — streets, buildings, toponyms | Static tiles |
 | Cesium ion | Real 3D terrain (World Terrain quantized-mesh) | Static tiles |
 | Mapillary | Street-level photos — pre/post comparison at damage points | Static cache |
@@ -81,8 +82,8 @@ Tactical operations room (HUD aesthetic) combining real-time seismic feeds, sate
 
 ```
 Frontend:   Next.js 14 (App Router) · TypeScript strict · Tailwind CSS v3
-Map:        MapLibre GL JS 4.x — open-source, zero tile cost
-3D Globe:   CesiumJS (toggle mode) — Cesium World Terrain
+Map 2D:     MapLibre GL JS 4.x — open-source, zero tile cost
+Map 3D:     CesiumJS (toggle mode) — Cesium World Terrain
 AI:         OpenRouter API (OpenAI-compatible) — Gemini 2.0 Flash free tier
 i18n:       next-intl (ES / EN)
 Data:       Next.js ISR route handlers (60 s – 60 min revalidate per source)
@@ -95,8 +96,8 @@ Hosting:    Vercel (free tier)
 
 | Toggle | Layer | Source |
 |---|---|---|
-| Epicentros | Main shock pulse rings | USGS |
-| Réplicas | Clustered aftershock circles | USGS |
+| Epicentros | Main shock pulse rings + selectable circles | USGS |
+| Réplicas | Clustered aftershock circles (zoom to expand cluster) | USGS |
 | ShakeMap | PGA intensity raster | USGS |
 | Fallas | Fault line vectors | USGS Fault DB |
 | SAR Cambio | Sentinel-1 change detection overlay | Copernicus CDSE |
@@ -106,12 +107,12 @@ Hosting:    Vercel (free tier)
 | EMSR884 Zonas | 13 AOI intervention boundary polygons | Copernicus EMS |
 | EMSR884 Productos | DEL/GRA damage vector tiles (EMS-98 palette) | Copernicus EMS S3 |
 | EMSC Sísmico | Complementary seismic events | EMSC |
-| Hospitales | Hospital status + capacity (AI triage) | OSM + AI |
-| Refugios | Emergency shelter locations | OSM |
-| Rutas Evacuación | Evacuation route corridors | OSM |
+| Hospitales | Hospital + helipad markers (OSM) — selectable + list fly-to | OSM Overpass |
+| Refugios | Emergency shelter locations | OSM Overpass |
+| Rutas Evacuación | Evacuation route corridors | OSM Overpass |
 | Daño Confirmado | Damage points with Mapillary photo comparison | Internal |
 | Vulnerabilidad | Composite vulnerability heatmap (SAR+pop+medical) | Internal calc |
-| Tráfico Aéreo | Live ADS-B aircraft positions | OpenSky |
+| Tráfico Aéreo | Live ADS-B — positions, trail, inferred routes, ISO2 labels | OpenSky |
 | Satélites | Sentinel orbital ground tracks + capture windows | CelesTrak |
 | Noticias Geo | Geolocated news article markers | GDELT |
 
@@ -120,17 +121,23 @@ Hosting:    Vercel (free tier)
 ## UI features
 
 - **HUD aesthetic** — scanlines overlay, pulse rings on epicenters (magnitude-scaled), targeting reticle on click with `NODE-VEN-XXXX` ID, glitch transition on layer change, corner decorations with live viewport coordinates + UTC
+- **Dynamic seismic discovery** — within event bbox: stable event-locked data; outside: USGS rolling 30-day fetch for viewport region with automatic region detection
+- **All seismic objects selectable** — individual circles, cluster zoom-on-click, Cesium 3D entity click; all load detail modal
+- **Flight route inference** — all visible airborne aircraft show inferred departure→position→arrival polyline from heading + speed projection; click to highlight; no credentials required
+- **Hospital list → map** — HospitalStatusPanel lists OSM hospitals by distance; clicking any row flies the map to that location and highlights marker
+- **Dynamic event context** — when viewport exits all known events, EVENTO ACTIVO section shows largest live USGS earthquake; AI assistant updates region context automatically
 - **Timeline slider** — scrub through pre-main-post event phases, filters SAR/optical layers by date
-- **AI assistant panel** — streaming chat terminal with seismic + news + humanitarian context injection; suggested queries
-- **System Health modal** — streaming NDJSON checks all 16 endpoints on startup, shows latency + status; retry button; `SYS` button in header to re-open
+- **AI assistant panel** — streaming chat terminal with seismic + news + humanitarian context injection; region-aware system prompt (known event or dynamic viewport)
+- **Mobile layout** — hamburger menu for all controls; bottom tab bar (Map / Stats / AI); 100dvh safe areas
+- **System Health modal** — streaming NDJSON checks all endpoints on startup, shows latency + status
 - **EMSR884 panel** — activation metadata, products per AOI, sensor info, download links (ZIP + GeoJSON), vector tile load status
 - **InSAR panel** — submit HyP3 job, poll processing status, load interferogram when ready
-- **Hospital Status panel** — AI-triage of hospitals near epicenter, capacity, operational status
+- **Hospital Status panel** — AI-triage of hospitals near epicenter, capacity, operational status; click row → fly to map
 - **Situation Report modal** — AI-generated OCHA-style sitrep with export
-- **Data Sources panel** — browsable registry of all active sources
-- **Zone search** — geocode + fly-to any locality in Venezuela
+- **Data Sources panel** — browsable registry of all active sources with attribution links
+- **Zone analysis** — analyze any viewport area: fetches news, reports, satellite imagery, AI summary; cached 20 min
 - **Photo comparator** — before/after Mapillary slider for confirmed damage points
-- **Event selector** — multi-event support (Venezuela 2026 + Turkey 2023 included)
+- **Event selector** — multi-event support (Venezuela 2026 + Turkey 2023); auto-switches on viewport proximity
 - **Bilingüe** — full ES/EN i18n toggle
 
 ---
@@ -173,11 +180,11 @@ npm run dev
 | `EARTHDATA_PASSWORD` | InSAR granule search | |
 | `MAPILLARY_CLIENT_TOKEN` | Street photo comparator | mapillary.com |
 | `NEXT_PUBLIC_MAPILLARY_APP_ID` | Mapillary client | |
-| `OPENSKY_CLIENT_ID` | Live air traffic | opensky-network.org |
-| `OPENSKY_CLIENT_SECRET` | Live air traffic | |
+| `OPENSKY_CLIENT_ID` | Flight history (departure/arrival airports) | opensky-network.org — optional; app infers routes from heading when absent |
+| `OPENSKY_CLIENT_SECRET` | Flight history | |
 | `NEXT_PUBLIC_CESIUM_TOKEN` | 3D terrain globe | cesium.com |
 
-Missing keys: layers render empty — the app does not crash.
+Missing keys: layers render empty or fall back to inference — the app does not crash.
 
 ---
 
@@ -190,7 +197,7 @@ geovigil-sar/
 │   │   ├── page.tsx           # Main dashboard — state, layout, panels
 │   │   └── layout.tsx         # HUD shell, Google Fonts
 │   └── api/
-│       ├── earthquakes/       # USGS proxy (revalidate 60s)
+│       ├── earthquakes/       # USGS proxy — event bbox or dynamic viewport bbox
 │       ├── emsc/              # EMSC seismic proxy
 │       ├── gdacs/             # GDACS alert feed
 │       ├── emsr884/           # Copernicus EMS EMSR884 activation + VT layers
@@ -201,82 +208,63 @@ geovigil-sar/
 │       ├── news/              # GDELT news proxy
 │       ├── humanitarian/      # ReliefWeb + GDELT GKG
 │       ├── air-traffic/       # OpenSky ADS-B
+│       ├── aircraft/[icao24]/ # Per-aircraft enrichment + route inference
 │       ├── satellites/        # CelesTrak TLE + orbital calc
 │       ├── hospitals/         # Hospital status + AI triage
+│       ├── zone-analyze/      # Zone analysis: news + reports + imagery + AI
 │       ├── vulnerability/     # Composite vulnerability score
 │       ├── geocode/           # Nominatim zone search
 │       ├── situation-report/  # AI sitrep generation
-│       ├── ai/                # Streaming chat endpoint
-│       └── health/            # Streaming NDJSON health check (16 endpoints)
+│       ├── ai/                # Streaming chat — region-aware system prompt
+│       └── health/            # Streaming NDJSON health check
 ├── components/
 │   ├── map/
-│   │   ├── GeoVigilMap.tsx        # Root map wrapper
+│   │   ├── GeoVigilMap.tsx        # Root map wrapper — data fetching, state
 │   │   ├── MapLibreMap.tsx        # MapLibre GL instance + all layer mounts
-│   │   ├── layers/                # One file per data layer
-│   │   │   ├── EarthquakeLayer.tsx
+│   │   ├── Cesium3DGlobe.tsx      # CesiumJS 3D globe + entity rendering
+│   │   ├── layers/
+│   │   │   ├── EarthquakeLayer.tsx      # Circles + pulse rings + cluster zoom
+│   │   │   ├── AirTrafficLayer.tsx      # Points + trails + inferred route lines
+│   │   │   ├── InfraLayer.tsx           # OSM features — hospitals, helipads, shelters…
 │   │   │   ├── ShakeMapLayer.tsx
 │   │   │   ├── FaultLinesLayer.tsx
 │   │   │   ├── SARLayer.tsx
-│   │   │   ├── InSARLayer.tsx
-│   │   │   ├── FIRMSLayer.tsx
-│   │   │   ├── EMSCLayer.tsx
-│   │   │   ├── EMSR884Layer.tsx         # AOI boundary polygons
-│   │   │   ├── EMSR884ProductsLayer.tsx # Damage VT tiles from S3
 │   │   │   ├── DamagePointsLayer.tsx
-│   │   │   ├── VulnerabilityHeatmap.tsx
-│   │   │   ├── AirTrafficLayer.tsx
-│   │   │   └── SatelliteTrackLayer.tsx
-│   │   ├── overlays/              # HUD: Scanlines, HUDCorners, TargetingOverlay
-│   │   └── controls/              # LayerToggle, TimelineSlider, VisionModeControl
+│   │   │   ├── FlightRouteLayer.tsx
+│   │   │   └── …
+│   │   ├── overlays/              # Scanlines, HUDCorners, TargetingOverlay
+│   │   └── controls/              # LayerToggle, ZoneAnalyzeButton, VisionModeControl
 │   ├── panels/
-│   │   ├── StatsPanel.tsx         # Left panel — live stats + data stream
-│   │   ├── AIPanel.tsx            # Right panel — AI assistant terminal
-│   │   ├── NewsStream.tsx         # Scrolling GDELT news feed
-│   │   ├── PhotoComparator.tsx    # Before/after Mapillary slider
-│   │   ├── HospitalStatusPanel.tsx
+│   │   ├── StatsPanel.tsx         # Left panel — live stats + source links + data stream
+│   │   ├── AIPanel.tsx            # Right panel — region-aware AI terminal
+│   │   ├── HospitalStatusPanel.tsx  # Hospital list + map fly-to
+│   │   ├── MapDetailPanel.tsx     # Selected object detail (eq, aircraft, damage, OSM)
+│   │   ├── ZoneAnalysisPanel.tsx
 │   │   ├── SituationReportModal.tsx
 │   │   ├── InSARPanel.tsx
-│   │   ├── EMSR884Panel.tsx       # Activation info, products, downloads
+│   │   ├── EMSR884Panel.tsx
 │   │   └── DataSourcesPanel.tsx
-│   ├── ui/
-│   │   ├── SystemHealthModal.tsx  # Streaming endpoint health check
-│   │   ├── HUDText.tsx
-│   │   ├── PulseRing.tsx
-│   │   ├── DataBar.tsx
-│   │   ├── StatusBadge.tsx
-│   │   └── GlitchTransition.tsx
-│   └── DashboardHeader.tsx
+│   └── DashboardHeader.tsx        # Mobile hamburger + desktop controls
 ├── lib/
-│   ├── ai.ts              # OpenRouter client factory + model registry
-│   ├── usgs.ts            # USGS API client
-│   ├── gdelt.ts           # GDELT DOC API client
-│   ├── reliefweb.ts       # ReliefWeb client
-│   ├── emsc.ts            # EMSC FDSN client
-│   ├── gdacs.ts           # GDACS RSS client
-│   ├── copernicus.ts      # CDSE OAuth + product search
-│   ├── copernicus-ems.ts  # EMS activation list
-│   ├── emsr884.ts         # EMSR884 types + VT layer extraction
-│   ├── hyp3.ts            # ASF HyP3 job submission
-│   ├── firms.ts           # NASA FIRMS CSV → GeoJSON
-│   ├── opensky.ts         # OpenSky ADS-B client
-│   ├── celestrak.ts       # CelesTrak TLE fetch
-│   ├── orbits.ts          # satellite.js orbital propagation
-│   ├── mapillary.ts       # Mapillary Graph API
-│   ├── hospitals.ts       # Hospital dataset loader
-│   ├── vulnerability.ts   # Composite vulnerability calculator
-│   ├── mock-data.ts       # Fallback mock data (Venezuela 2026)
-│   └── events/            # Event registry (VEN-2406, TUR-2302)
+│   ├── ai.ts                  # OpenRouter client + dynamic region-aware system prompt
+│   ├── flight-route-infer.ts  # Client-safe heading-based route inference
+│   ├── airports.ts            # Static airport database (~300 airports)
+│   ├── country-flags.ts       # ISO2 country code lookup (OpenSky name variants)
+│   ├── usgs.ts                # USGS API client
+│   ├── gdelt.ts               # GDELT DOC API client
+│   ├── reliefweb.ts           # ReliefWeb client
+│   ├── overpass.ts            # Overpass QL builder — hospitals, helipads, shelters…
+│   ├── opensky.ts             # OpenSky ADS-B client
+│   ├── orbits.ts              # satellite.js orbital propagation
+│   ├── events/                # Event registry (VEN-2406, TUR-2302)
+│   └── types/map-selection.ts # SelectedMapObject union type
 ├── messages/
-│   ├── es.json            # Spanish UI strings
-│   └── en.json            # English UI strings
-├── public/
-│   └── geojson/
-│       └── EMSR884_aois.json  # 13 Copernicus EMS AOI polygons (static)
-├── i18n/
-│   └── request.ts         # next-intl config
-├── DATA_SOURCES.md        # Full source registry: endpoints, auth, cadence
-├── WORKPLAN.md            # Phase contracts + acceptance criteria
-└── WORKPLAN_PANOPTICO.md  # Panoptic improvement plan (phases 0–6)
+│   ├── es.json                # Spanish UI strings
+│   └── en.json                # English UI strings
+├── public/geojson/
+│   └── EMSR884_aois.json      # 13 Copernicus EMS AOI polygons (static)
+├── DATA_SOURCES.md            # Full source registry: endpoints, auth, cadence
+└── WORKPLAN.md                # Phase contracts + acceptance criteria
 ```
 
 ---
@@ -291,8 +279,8 @@ geovigil-sar/
 | `--color-bg` | `#000A0F` | Main background |
 | `--color-panel` | `#001A24` | Panels, sidebars |
 | `--color-green` | `#00FF88` | Live data, primary accent |
-| `--color-cyan` | `#00B4FF` | SAR layers, satellite |
-| `--color-red` | `#FF4444` | Damage, alerts |
+| `--color-cyan` | `#00B4FF` | SAR layers, satellite, aircraft |
+| `--color-red` | `#FF4444` | Damage, alerts, hospitals |
 | `--color-amber` | `#FFB800` | Warnings, moderate aftershocks |
 | `--color-slate` | `#1A3A4A` | Borders, grids |
 

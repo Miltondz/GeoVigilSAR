@@ -42,14 +42,20 @@ export function isFreeModel(id: string): boolean {
 // ─── Context types ─────────────────────────────────────────────────────────────
 export interface AIContext {
   eventId: string
+  viewportLocation?: string
+  isKnownEvent?: boolean
   recentEarthquakes: Pick<USGSFeature, 'magnitude' | 'place' | 'time' | 'depth'>[]
   latestStats: { fatalities: number; injured: number; source: string; timestamp: number }
   recentNews: { title: string; source: string; publishedAt: number }[]
   activeLayers: string[]
 }
 
-// ─── System prompt ─────────────────────────────────────────────────────────────
-const SYSTEM_BASE = `Eres el sistema de inteligencia situacional de GeoVigil SAR.
+function buildSystemBase(ctx: Partial<AIContext> & { eventId: string }): string {
+  const knownEvent = ctx.isKnownEvent !== false
+  const location = ctx.viewportLocation ?? 'Venezuela'
+
+  if (knownEvent && ctx.eventId === 'VEN-2406') {
+    return `Eres el sistema de inteligencia situacional de GeoVigil SAR.
 Tienes acceso a datos sísmicos en tiempo real de USGS, imágenes
 satelitales de Copernicus, noticias de GDELT y reportes humanitarios
 de ReliefWeb/OCHA para el evento sísmico de Venezuela del 24 de
@@ -60,6 +66,20 @@ Sé directo, técnico y preciso. Cita las fuentes de los datos que usas.
 Si no tienes datos suficientes, dilo claramente. No especules más allá
 de lo que los datos permiten. Respuestas cortas y estructuradas.
 Usa números concretos. Prioriza utilidad operacional.`
+  }
+
+  return `Eres el sistema de inteligencia situacional de GeoVigil SAR.
+El usuario está monitoreando la región: ${location}.
+${!knownEvent ? 'No hay un evento predefinido en esta zona. Los datos sísmicos son dinámicos, obtenidos de USGS en tiempo real para los últimos 30 días.' : `Evento activo: ${ctx.eventId}.`}
+Tienes acceso a datos sísmicos de USGS, imágenes satelitales de Copernicus,
+noticias de GDELT y reportes humanitarios de ReliefWeb/OCHA.
+
+Responde en el idioma en que se te pregunta (español o inglés).
+Sé directo, técnico y preciso. Cita las fuentes de los datos que usas.
+Si no tienes datos suficientes, dilo claramente. No especules más allá
+de lo que los datos permiten. Respuestas cortas y estructuradas.
+Usa números concretos. Prioriza utilidad operacional.`
+}
 
 export function buildSystemPrompt(ctx: Partial<AIContext> & { eventId: string }): string {
   const quakes = ctx.recentEarthquakes ?? []
@@ -88,7 +108,7 @@ export function buildSystemPrompt(ctx: Partial<AIContext> & { eventId: string })
     ? `\n--- CAPAS ACTIVAS ---\n${layers.join(', ')}`
     : ''
 
-  return SYSTEM_BASE + quakesSection + statsSection + newsSection + layersSection
+  return buildSystemBase(ctx) + quakesSection + statsSection + newsSection + layersSection
 }
 
 // ─── Client factory ────────────────────────────────────────────────────────────

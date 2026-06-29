@@ -1,4 +1,4 @@
-export type OsmKind = 'shelter' | 'school' | 'fuel' | 'police' | 'fire_station' | 'bridge'
+export type OsmKind = 'shelter' | 'school' | 'fuel' | 'police' | 'fire_station' | 'bridge' | 'hospital' | 'helipad'
 
 export interface OsmFeature {
   id: number
@@ -41,6 +41,9 @@ export function buildInfraQuery(bbox: string): string {
   node["amenity"="fuel"](${bbox});
   node["amenity"="police"](${bbox});
   node["amenity"="fire_station"](${bbox});
+  node["amenity"="hospital"](${bbox});
+  way["amenity"="hospital"](${bbox});
+  node["aeroway"="helipad"](${bbox});
   way["bridge"="yes"](${bbox});
 );
 out center tags;`
@@ -58,6 +61,8 @@ function classifyKind(tags: Record<string, string>): OsmKind | null {
   if (tags.amenity === 'fuel')         return 'fuel'
   if (tags.amenity === 'police')       return 'police'
   if (tags.amenity === 'fire_station') return 'fire_station'
+  if (tags.amenity === 'hospital')     return 'hospital'
+  if (tags.aeroway === 'helipad')      return 'helipad'
   if (tags.bridge === 'yes')           return 'bridge'
   return null
 }

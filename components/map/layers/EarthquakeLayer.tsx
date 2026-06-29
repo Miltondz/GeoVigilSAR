@@ -22,6 +22,7 @@ interface EarthquakeLayerProps {
   visible: boolean
   showAfterShocks?: boolean
   mapActive?: boolean
+  onSelect?: (obj: { type: 'earthquake'; id: string; magnitude: number; depth: number; place: string; time: number; classification: string; lat: number; lng: number }) => void
 }
 
 function magnitudeToRadius(mag: number): number {
@@ -39,7 +40,7 @@ function depthToColor(depth: number): string {
   return '#00B4FF'
 }
 
-export default function EarthquakeLayer({ map, earthquakes, visible, showAfterShocks = true, mapActive = true }: EarthquakeLayerProps) {
+export default function EarthquakeLayer({ map, earthquakes, visible, showAfterShocks = true, mapActive = true, onSelect }: EarthquakeLayerProps) {
   useEffect(() => {
     const SOURCE_ID = 'earthquakes'
     const LAYER_MAIN = 'earthquakes-main'
@@ -116,14 +117,45 @@ export default function EarthquakeLayer({ map, earthquakes, visible, showAfterSh
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visibility)
     }
 
+    // Cluster click → zoom in so individual earthquakes become visible
+    const onClusterClick = (e: import('maplibre-gl').MapMouseEvent & { features?: import('maplibre-gl').MapGeoJSONFeature[] }) => {
+      if (!e.features?.length) return
+      const clusterId = e.features[0].properties?.cluster_id as number | undefined
+      if (clusterId == null) return
+      const src = map.getSource(SOURCE_ID) as import('maplibre-gl').GeoJSONSource
+      const coords = (e.features![0].geometry as GeoJSON.Point).coordinates as [number, number]
+      src.getClusterExpansionZoom(clusterId).then((zoom: number) => {
+        map.easeTo({ center: coords, zoom: zoom + 1 })
+      }).catch(() => {
+        map.easeTo({ center: coords, zoom: map.getZoom() + 2 })
+      })
+    }
+    map.on('click', 'clusters', onClusterClick)
+    map.on('mouseenter', 'clusters', () => { map.getCanvas().style.cursor = 'pointer' })
+    map.on('mouseleave', 'clusters', () => { map.getCanvas().style.cursor = '' })
+
+    // Individual earthquake click
+    const onEqClick = (e: import('maplibre-gl').MapMouseEvent & { features?: import('maplibre-gl').MapGeoJSONFeature[] }) => {
+      if (!e.features?.length) return
+      const f = e.features[0]
+      const p = f.properties as { id: string; magnitude: number; depth: number; place: string; time: number; classification: string }
+      const [lng, lat] = (f.geometry as GeoJSON.Point).coordinates
+      onSelect?.({ type: 'earthquake', id: p.id, magnitude: p.magnitude, depth: p.depth, place: p.place, time: p.time, classification: p.classification, lat, lng })
+    }
+    map.on('click', LAYER_MAIN, onEqClick)
+    map.on('mouseenter', LAYER_MAIN, () => { map.getCanvas().style.cursor = 'pointer' })
+    map.on('mouseleave', LAYER_MAIN, () => { map.getCanvas().style.cursor = '' })
+
     return () => {
+      map.off('click', 'clusters', onClusterClick)
+      map.off('click', LAYER_MAIN, onEqClick)
       if (!isMapAlive(map)) return
       for (const id of ['clusters', 'cluster-count', LAYER_MAIN]) {
         if (map.getLayer(id)) map.removeLayer(id)
       }
       if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID)
     }
-  }, [map, earthquakes, visible, showAfterShocks])
+  }, [map, earthquakes, visible, showAfterShocks, onSelect])
 
   // ── Pulse ring HTML markers (RAF-based, no CSS keyframe dependency) ─────────
   useEffect(() => {

@@ -10,9 +10,13 @@ function flag(iso2: string): string {
 }
 
 // OpenSky country name strings → ISO 3166-1 alpha-2
+// Includes ISO 3166-1 standard names AND OpenSky variants (long-form country names)
 const ISO2: Record<string, string> = {
-  'Venezuela':                    'VE',
-  'United States':                'US',
+  'Venezuela':                              'VE',
+  'Venezuela, Bolivarian Republic of':      'VE',
+  'Venezuela (Bolivarian Republic of)':     'VE',
+  'United States':                          'US',
+  'United States of America':               'US',
   'Colombia':                     'CO',
   'Brazil':                       'BR',
   'Mexico':                       'MX',
@@ -65,6 +69,13 @@ const ISO2: Record<string, string> = {
   'Portugal':                     'PT',
   'Turkey':                       'TR',
   'Russian Federation':           'RU',
+  'Russia':                       'RU',
+  'Korea, Republic of':           'KR',
+  'Iran, Islamic Republic of':    'IR',
+  'Bolivia (Plurinational State of)': 'BO',
+  'Tanzania, United Republic of': 'TZ',
+  'Syria, Arab Republic':         'SY',
+  'Czechia':                      'CZ',
   'China':                        'CN',
   'United Arab Emirates':         'AE',
   'Saudi Arabia':                 'SA',

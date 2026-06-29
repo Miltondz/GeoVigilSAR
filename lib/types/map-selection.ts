@@ -81,7 +81,7 @@ export type SelectedMapObject =
   | {
       type: 'osm'
       id: number
-      kind: 'shelter' | 'school' | 'hospital' | 'fuel' | 'police' | 'fire_station' | 'bridge' | 'helipad' | 'port'
+      kind: 'shelter' | 'school' | 'hospital' | 'fuel' | 'police' | 'fire_station' | 'bridge' | 'helipad'
       name: string
       lat: number
       lng: number

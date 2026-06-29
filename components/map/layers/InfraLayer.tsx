@@ -14,12 +14,14 @@ const LYR_LABEL  = 'osm-infra-label'
 const LYR_ROADS  = 'osm-roads-line'
 
 const KIND_COLOR: Record<string, string> = {
+  hospital:     '#FF4444', // red — critical emergency facility
+  helipad:      '#00B4FF', // cyan — aviation
   shelter:      '#00FF88', // --color-green
   school:       '#FFB800', // --color-amber
   fuel:         '#FFB800',
-  police:       '#FF4444', // --color-red
+  police:       '#FF4444',
   fire_station: '#FF4444',
-  bridge:       '#1A3A4A', // --color-slate (but visible)
+  bridge:       '#1A3A4A',
 }
 
 function toFeatGeoJSON(features: OsmFeature[]): GeoJSON.FeatureCollection {
@@ -80,11 +82,11 @@ export default function InfraLayer({ map, features, roads = [], visible, onSelec
       map.addLayer({
         id: LYR_FEAT, type: 'circle', source: SRC_FEAT,
         paint: {
-          'circle-radius': 7,
+          'circle-radius': ['match', ['get', 'kind'], 'hospital', 10, 'helipad', 6, 7],
           'circle-color': ['get', 'color'],
-          'circle-opacity': 0.85,
-          'circle-stroke-color': '#001A24',
-          'circle-stroke-width': 1.5,
+          'circle-opacity': 0.9,
+          'circle-stroke-color': ['match', ['get', 'kind'], 'hospital', '#ffffff', '#001A24'],
+          'circle-stroke-width': ['match', ['get', 'kind'], 'hospital', 2, 1.5],
         },
         layout: { visibility: visible ? 'visible' : 'none' },
       })

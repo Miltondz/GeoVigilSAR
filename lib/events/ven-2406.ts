@@ -41,6 +41,7 @@ export interface EventConfig {
     minLat: number; maxLat: number
     minLng: number; maxLng: number
     startTime: string
+    endTime?: string
     minMagnitude: number
   }
   gdeltQuery: string
@@ -63,7 +64,7 @@ export const VEN_2406: EventConfig = {
   affectedStates: ['La Guaira', 'Miranda', 'Aragua', 'Carabobo', 'Yaracuy', 'Trujillo'],
   usgsQuery: {
     minLat: 0, maxLat: 13, minLng: -74, maxLng: -59,
-    startTime: '2026-06-24', minMagnitude: 2.0,
+    startTime: '2026-06-24', endTime: '2026-06-28', minMagnitude: 2.0,
   },
   gdeltQuery: 'Venezuela sismo terremoto',
   reliefWebCountry: 'VEN',
