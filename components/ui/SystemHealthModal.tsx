@@ -212,14 +212,12 @@ export default function SystemHealthModal({ onClose, autoClose = true }: SystemH
       >
         {/* Panel */}
         <div style={{
-          width: 420,
-          maxHeight: '88vh',
+          width: 580,
           backgroundColor: 'var(--color-panel)',
           border: '1px solid var(--color-slate)',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
-          overflow: 'hidden',
         }}>
 
           {/* HUD corners */}
@@ -289,161 +287,83 @@ export default function SystemHealthModal({ onClose, autoClose = true }: SystemH
             }} />
           </div>
 
-          {/* Results */}
-          <div style={{ overflowY: 'auto', flex: 1 }}>
+          {/* Results — 2-column grid, no scroll */}
+          <div style={{ padding: '0.125rem 0' }}>
 
             {/* Loading state */}
             {loading && results.length === 0 && (
-              <div style={{ padding: '2.5rem 1rem', textAlign: 'center' }}>
+              <div style={{ padding: '2rem 1rem', textAlign: 'center' }}>
                 <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.5rem',
-                  color: 'var(--color-cyan)',
-                  letterSpacing: '0.2em',
+                  display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                  fontSize: '0.5rem', color: 'var(--color-cyan)', letterSpacing: '0.2em',
                 }}>
                   <div style={{
                     width: 8, height: 8,
-                    border: '1.5px solid #00B4FF',
-                    borderTopColor: 'transparent',
-                    borderRadius: '50%',
-                    animation: 'sysHealthSpin 0.8s linear infinite',
+                    border: '1.5px solid #00B4FF', borderTopColor: 'transparent',
+                    borderRadius: '50%', animation: 'sysHealthSpin 0.8s linear infinite',
                   }} />
                   INICIANDO VERIFICACIÓN...
                 </div>
               </div>
             )}
 
-            {/* Groups */}
+            {/* Groups: label spans full width, items in 2-col grid */}
             {Object.entries(groups).map(([group, items]) => (
               <div key={group}>
-                {/* Group label */}
                 <div style={{
-                  padding: '0.25rem 0.75rem 0.15rem',
-                  fontSize: '0.43rem',
-                  color: 'var(--color-muted)',
-                  letterSpacing: '0.22em',
+                  padding: '0.2rem 0.75rem 0.125rem',
+                  fontSize: '0.4rem', color: 'var(--color-muted)', letterSpacing: '0.22em',
                   borderBottom: '1px solid rgba(26,58,74,0.5)',
-                  marginTop: '0.125rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
                 }}>
                   <span>{group}</span>
-                  <span style={{ color: 'rgba(26,58,74,0.8)', flex: 1, borderTop: '1px dashed rgba(26,58,74,0.5)', height: 0, display: 'block' }} />
-                  <span style={{ fontSize: '0.4rem' }}>{items.length} fuente{items.length !== 1 ? 's' : ''}</span>
+                  <span style={{ flex: 1, borderTop: '1px dashed rgba(26,58,74,0.4)', height: 0 }} />
+                  <span style={{ fontSize: '0.38rem' }}>{items.length}</span>
                 </div>
 
-                {/* Rows */}
-                {items.map((r, rowIdx) => (
-                  <div
-                    key={r.id}
-                    className="sys-health-row"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '0.2rem 0.75rem',
-                      gap: '0.5rem',
-                      borderBottom: rowIdx < items.length - 1 ? '1px solid rgba(26,58,74,0.2)' : 'none',
-                      animationDelay: `${rowIdx * 40}ms`,
-                    }}
-                  >
-                    <StatusDot status={r.status} />
-
-                    {/* Name */}
-                    <div style={{
-                      fontSize: '0.6rem',
-                      color: r.status === 'error' ? 'rgba(255,68,68,0.8)' : 'var(--color-text)',
-                      flex: 1,
-                      letterSpacing: '0.03em',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {r.name}
-                    </div>
-
-                    {/* Error hint */}
-                    {(r.status === 'error' || r.status === 'timeout') && r.error && (
-                      <div style={{
-                        fontSize: '0.4rem',
-                        color: 'rgba(255,68,68,0.6)',
-                        maxWidth: 140,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                  {items.map((r, idx) => (
+                    <div
+                      key={r.id}
+                      className="sys-health-row"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '0.375rem',
+                        padding: '0.175rem 0.625rem',
+                        borderBottom: '1px solid rgba(26,58,74,0.15)',
+                        borderRight: idx % 2 === 0 ? '1px solid rgba(26,58,74,0.3)' : 'none',
+                        animationDelay: `${idx * 35}ms`,
+                        minWidth: 0,
+                      }}
+                    >
+                      <StatusDot status={r.status} />
+                      <span style={{
+                        flex: 1, fontSize: '0.5rem', minWidth: 0,
+                        color: r.status === 'error' ? 'rgba(255,68,68,0.85)' : 'var(--color-text)',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        letterSpacing: '0.02em',
                       }}>
-                        {r.error}
-                      </div>
-                    )}
-
-                    {/* HTTP status */}
-                    {r.httpStatus !== undefined && (
-                      <div style={{
-                        fontSize: '0.43rem',
-                        color: r.status === 'warn' ? '#FFB800' : 'var(--color-muted)',
-                        minWidth: 28,
-                        textAlign: 'right',
+                        {r.name}
+                      </span>
+                      <span style={{
+                        fontSize: '0.43rem', color: STATUS_COLOR[r.status],
+                        letterSpacing: '0.08em', flexShrink: 0,
                       }}>
-                        {r.httpStatus}
-                      </div>
-                    )}
-
-                    {/* Status badge */}
-                    <div style={{
-                      fontSize: '0.47rem',
-                      color: STATUS_COLOR[r.status],
-                      letterSpacing: '0.12em',
-                      minWidth: 54,
-                      textAlign: 'right',
-                    }}>
-                      {r.httpStatus && r.status === 'warn'
-                        ? `HTTP ${r.httpStatus}`
-                        : STATUS_LABEL[r.status]}
-                    </div>
-
-                    {/* Latency */}
-                    <div style={{ minWidth: 44, textAlign: 'right' }}>
-                      <LatencyText ms={r.latencyMs} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-
-            {/* Summary row when done */}
-            {!loading && results.length > 0 && (
-              <div style={{
-                padding: '0.5rem 1rem',
-                marginTop: '0.25rem',
-                borderTop: '1px solid var(--color-slate)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-              }}>
-                <div style={{ display: 'flex', gap: '1.25rem' }}>
-                  {[
-                    { label: 'ONLINE', val: okCount,   color: '#00FF88' },
-                    { label: 'AVISO',  val: warnCount, color: '#FFB800' },
-                    { label: 'ERROR',  val: failCount, color: '#FF4444' },
-                  ].map(({ label, val, color }) => (
-                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <div style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: color }} />
-                      <span style={{ fontSize: '0.45rem', color, letterSpacing: '0.12em' }}>
-                        {val} {label}
+                        {STATUS_LABEL[r.status]}
+                      </span>
+                      <span style={{ flexShrink: 0 }}>
+                        <LatencyText ms={r.latencyMs} />
                       </span>
                     </div>
                   ))}
                 </div>
               </div>
-            )}
+            ))}
           </div>
 
           {/* Footer */}
           <div style={{
             borderTop: '1px solid var(--color-slate)',
-            padding: '0.5rem 1rem',
+            padding: '0.3rem 0.75rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
