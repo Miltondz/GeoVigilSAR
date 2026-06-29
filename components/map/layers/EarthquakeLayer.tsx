@@ -21,6 +21,7 @@ interface EarthquakeLayerProps {
   earthquakes: Earthquake[]
   visible: boolean
   showAfterShocks?: boolean
+  mapActive?: boolean
 }
 
 function magnitudeToRadius(mag: number): number {
@@ -38,7 +39,7 @@ function depthToColor(depth: number): string {
   return '#00B4FF'
 }
 
-export default function EarthquakeLayer({ map, earthquakes, visible, showAfterShocks = true }: EarthquakeLayerProps) {
+export default function EarthquakeLayer({ map, earthquakes, visible, showAfterShocks = true, mapActive = true }: EarthquakeLayerProps) {
   useEffect(() => {
     const SOURCE_ID = 'earthquakes'
     const LAYER_MAIN = 'earthquakes-main'
@@ -124,40 +125,65 @@ export default function EarthquakeLayer({ map, earthquakes, visible, showAfterSh
     }
   }, [map, earthquakes, visible, showAfterShocks])
 
-  // ── Pulse ring HTML markers (CSS keyframe animation) ──────────────────────
+  // ── Pulse ring HTML markers (RAF-based, no CSS keyframe dependency) ─────────
   useEffect(() => {
-    if (!isMapAlive(map) || !visible) return
+    if (!isMapAlive(map) || !visible || !mapActive) return
     const markers: Marker[] = []
+    const animated: { rings: HTMLSpanElement[]; durationMs: number; color: string }[] = []
 
     for (const eq of earthquakes) {
-      let color = '', duration = 0, rings = 0
-      if      (eq.magnitude >= 7) { color = '#FF4444'; duration = 0.8; rings = 3 }
-      else if (eq.magnitude >= 6) { color = '#FF4444'; duration = 1.0; rings = 3 }
-      else if (eq.magnitude >= 5) { color = '#FF4444'; duration = 1.5; rings = 2 }
-      else if (eq.magnitude >= 4) { color = '#FFB800'; duration = 2.5; rings = 2 }
-      else if (eq.magnitude >= 3) { color = '#FFB800'; duration = 3.5; rings = 1 }
-      if (rings === 0) continue
+      let color = '', durationMs = 0, ringCount = 0
+      if      (eq.magnitude >= 7) { color = '#FF4444'; durationMs = 800;  ringCount = 3 }
+      else if (eq.magnitude >= 6) { color = '#FF4444'; durationMs = 1000; ringCount = 3 }
+      else if (eq.magnitude >= 5) { color = '#FF4444'; durationMs = 1500; ringCount = 2 }
+      else if (eq.magnitude >= 4) { color = '#FFB800'; durationMs = 2500; ringCount = 2 }
+      else if (eq.magnitude >= 3) { color = '#FFB800'; durationMs = 3500; ringCount = 1 }
+      if (ringCount === 0) continue
 
       const size = magnitudeToRadius(eq.magnitude) * 3
       const el = document.createElement('div')
-      el.style.cssText = `position:relative;width:${size}px;height:${size}px;pointer-events:none;`
+      el.style.cssText = `position:relative;width:${size}px;height:${size}px;pointer-events:none;overflow:visible;`
 
-      for (let i = 0; i < rings; i++) {
+      const rings: HTMLSpanElement[] = []
+      for (let i = 0; i < ringCount; i++) {
         const ring = document.createElement('span')
-        ring.style.cssText = `position:absolute;inset:0;border-radius:50%;border:2px solid ${color};animation:pulse-ring ${duration}s ease-out ${i * (duration / rings)}s infinite;box-shadow:0 0 6px ${color};`
+        ring.style.cssText = `position:absolute;inset:0;border-radius:50%;border:2px solid ${color};box-shadow:0 0 6px ${color};transform-origin:center;will-change:transform,opacity;`
         el.appendChild(ring)
+        rings.push(ring)
       }
 
       const dot = document.createElement('span')
-      dot.style.cssText = `position:absolute;inset:25%;border-radius:50%;background:${color};box-shadow:0 0 8px ${color};`
+      dot.style.cssText = `position:absolute;inset:30%;border-radius:50%;background:${color};box-shadow:0 0 8px ${color};`
       el.appendChild(dot)
 
       const m = new Marker({ element: el, anchor: 'center' }).setLngLat([eq.lng, eq.lat]).addTo(map)
       markers.push(m)
+      animated.push({ rings, durationMs, color })
     }
 
-    return () => { markers.forEach(m => m.remove()) }
-  }, [map, earthquakes, visible])
+    // Single RAF loop drives all rings — works regardless of CSS load or display:none history
+    let rafId: number
+    const tick = () => {
+      const now = performance.now()
+      for (const { rings, durationMs } of animated) {
+        rings.forEach((ring, i) => {
+          const phase = i / rings.length
+          const t = ((now / durationMs) + phase) % 1
+          const scale = 1 + t * 2.5
+          const opacity = Math.max(0, (1 - t) * 0.85)
+          ring.style.transform = `scale(${scale.toFixed(3)})`
+          ring.style.opacity = opacity.toFixed(3)
+        })
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    if (animated.length > 0) tick()
+
+    return () => {
+      cancelAnimationFrame(rafId)
+      markers.forEach(m => m.remove())
+    }
+  }, [map, earthquakes, visible, mapActive])
 
   return null
 }

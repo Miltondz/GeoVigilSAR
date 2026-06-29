@@ -247,6 +247,7 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
   }
 
   const onPtrDown = useCallback((e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button,a,[role="button"]')) return
     drag.current = { on: true, ox: e.clientX, oy: e.clientY, px: pos.x, py: pos.y }
     e.currentTarget.setPointerCapture(e.pointerId)
   }, [pos])

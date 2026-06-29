@@ -96,6 +96,7 @@ interface MapLibreMapProps {
   boundaries?: (AdminBoundary & { population: number | null })[]
   usaidDeclarations?: UsaidDeclaration[]
   ftsFlows?: FtsFlow[]
+  mapActive?: boolean
 }
 
 // Protomaps free tile style — no key required
@@ -129,6 +130,7 @@ export default function MapLibreMap({
   boundaries = [],
   usaidDeclarations = [],
   ftsFlows = [],
+  mapActive = true,
 }: MapLibreMapProps) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const mapRef        = useRef<maplibregl.Map | null>(null)
@@ -495,6 +497,7 @@ export default function MapLibreMap({
               earthquakes={earthquakes}
               visible={activeLayers.epicenters || activeLayers.aftershocks}
               showAfterShocks={activeLayers.aftershocks}
+              mapActive={mapActive}
             />
             <ShakeMapLayer
               map={mapRef.current}

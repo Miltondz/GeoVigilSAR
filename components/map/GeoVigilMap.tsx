@@ -291,6 +291,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
             activeLayers={activeLayers}
             eventId={eventId}
             earthquakes={earthquakes}
+            mapActive={viewMode === '2d'}
             timelinePhase={timelinePhase}
             timelineMs={timelineMs}
             flyTo={flyTo}
