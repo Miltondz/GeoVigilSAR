@@ -193,6 +193,17 @@ export default function EarthquakeLayer({ map, earthquakes, visible, showAfterSh
       animated.push({ rings, durationMs, color })
     }
 
+    // Hide pulse rings when earthquakes are clustered (zoom <= clusterMaxZoom)
+    const CLUSTER_MAX_ZOOM = 9
+    const syncVisibility = () => {
+      const show = map.getZoom() > CLUSTER_MAX_ZOOM
+      markers.forEach(m => {
+        (m.getElement() as HTMLElement).style.display = show ? '' : 'none'
+      })
+    }
+    syncVisibility()
+    map.on('zoom', syncVisibility)
+
     // Single RAF loop drives all rings — works regardless of CSS load or display:none history
     let rafId: number
     const tick = () => {
@@ -213,6 +224,7 @@ export default function EarthquakeLayer({ map, earthquakes, visible, showAfterSh
 
     return () => {
       cancelAnimationFrame(rafId)
+      map.off('zoom', syncVisibility)
       markers.forEach(m => m.remove())
     }
   }, [map, earthquakes, visible, mapActive])

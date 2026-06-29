@@ -15,7 +15,10 @@ import SystemHealthModal from '@/components/ui/SystemHealthModal'
 import EMSR884Panel from '@/components/panels/EMSR884Panel'
 import SavedEventsPanel from '@/components/panels/SavedEventsPanel'
 import ZoneAnalysisPanel from '@/components/panels/ZoneAnalysisPanel'
-import type { SavedEvent } from '@/lib/saved-events'
+import {
+  loadSavedEvents, sortedEvents as sortSavedEvents,
+  SAVED_EVENTS_CHANGE_EVENT, type SavedEvent,
+} from '@/lib/saved-events'
 import type { ZoneSnapshot } from '@/lib/zone-cache'
 import type { VisionMode } from '@/components/map/overlays/VisionModeOverlay'
 import { getEvent, EVENT_REGISTRY } from '@/lib/events/index'
@@ -90,11 +93,23 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [visionMode, setVisionMode] = useState<VisionMode>('CRT')
   const isMobile = useIsMobile()
   const [mobileTab, setMobileTab] = useState<'map' | 'stats' | 'ai'>('map')
+  const [pinnedEvents, setPinnedEvents] = useState<SavedEvent[]>([])
 
   // Default to 2D on mobile — Cesium 3D is resource-heavy on phones
   useEffect(() => {
     if (isMobile) setViewMode('2d')
   }, [isMobile])
+
+  // Pinned saved events — load on mount + refresh on any mutation
+  useEffect(() => {
+    const refresh = () => {
+      const all = sortSavedEvents(loadSavedEvents())
+      setPinnedEvents(all.filter(e => e.pinned && !e.archived).slice(0, 3))
+    }
+    refresh()
+    window.addEventListener(SAVED_EVENTS_CHANGE_EVENT, refresh)
+    return () => window.removeEventListener(SAVED_EVENTS_CHANGE_EVENT, refresh)
+  }, [])
 
   useEffect(() => {
     setHumanStats(null)
@@ -260,6 +275,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
       location={viewportLocation}
       faultSystem={displayFaultSystem}
       dataStream={dataStream}
+      pinnedEvents={pinnedEvents}
       isKnownEvent={isKnownEventArea}
       onHospitalDetailOpen={() => setHospitalPanelOpen(true)}
       zoneSnapshot={zoneSnapshot}

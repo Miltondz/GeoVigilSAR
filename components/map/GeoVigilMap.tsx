@@ -104,6 +104,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   const [flightRoute, setFlightRoute]       = useState<FlightRoute | null>(null)
   const [aircraft, setAircraft]             = useState<AircraftState[]>([])
   const [viewportBbox, setViewportBbox]     = useState<ViewportBbox | null>(null)
+  const [zoneBbox, setZoneBbox]             = useState<ViewportBbox | null>(null)
   const [airports, setAirports]             = useState<AviationAirport[]>([])
   const [weatherPts, setWeatherPts]         = useState<WeatherPoint[]>([])
   const [buoys, setBuoys]                   = useState<BuoyObservation[]>([])
@@ -293,6 +294,11 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLayers.funding])
 
+  // Clear zone bbox when snapshot is cleared from parent
+  useEffect(() => {
+    if (!currentZoneSnapshot) setZoneBbox(null)
+  }, [currentZoneSnapshot])
+
   const eventCfg                = getEvent(eventId)
   const epicenter               = eventCfg.epicenter
   const selectedAircraftIcao24  = selectedObject?.type === 'aircraft' ? selectedObject.icao24 : null
@@ -335,6 +341,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
             boundaries={boundaries}
             usaidDeclarations={usaidDecl}
             ftsFlows={ftsFlows}
+            zoneBbox={zoneBbox}
           />
         </div>
 
@@ -399,7 +406,10 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
         )}
         <ZoneAnalyzeButton
           viewportBbox={viewportBbox}
-          onSnapshot={onZoneSnapshot ?? (() => {})}
+          onSnapshot={snap => {
+            setZoneBbox(viewportBbox)
+            onZoneSnapshot?.(snap)
+          }}
           hasSnapshot={!!currentZoneSnapshot}
           snapshotAge={currentZoneSnapshot ? Date.now() - currentZoneSnapshot.fetchedAt : undefined}
           eventTime={getEvent(eventId).mainShockTime}

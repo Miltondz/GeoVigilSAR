@@ -15,7 +15,14 @@ export interface SavedEvent {
   zoneBboxHash?:string    // key to look up cached zone data
 }
 
-const STORAGE_KEY = 'geovigil:saved-events:v1'
+const STORAGE_KEY  = 'geovigil:saved-events:v1'
+export const SAVED_EVENTS_CHANGE_EVENT = 'geovigil:saved-events:change'
+
+function dispatchChange(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(SAVED_EVENTS_CHANGE_EVENT))
+  }
+}
 
 const VEN_SEED: SavedEvent = {
   id:        'VEN-2406-seed',
@@ -36,7 +43,11 @@ function read(): SavedEvent[] {
   if (typeof window === 'undefined') return [VEN_SEED]
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return [VEN_SEED]
+    if (!raw) {
+      // First visit — write seed to storage so it can be permanently deleted later
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([VEN_SEED]))
+      return [VEN_SEED]
+    }
     return JSON.parse(raw) as SavedEvent[]
   } catch {
     return [VEN_SEED]
@@ -49,14 +60,7 @@ function write(events: SavedEvent[]): void {
 }
 
 export function loadSavedEvents(): SavedEvent[] {
-  const events = read()
-  // Ensure VEN seed always exists
-  if (!events.find(e => e.id === 'VEN-2406-seed')) {
-    const next = [VEN_SEED, ...events]
-    write(next)
-    return next
-  }
-  return events
+  return read()
 }
 
 export function sortedEvents(events: SavedEvent[]): SavedEvent[] {
@@ -72,24 +76,28 @@ export function addSavedEvent(ev: Omit<SavedEvent, 'savedAt' | 'pinned' | 'archi
   if (events.find(e => e.id === ev.id)) return events  // already saved
   const next = [{ ...ev, pinned: false, archived: false, savedAt: Date.now() }, ...events]
   write(next)
+  dispatchChange()
   return next
 }
 
 export function removeSavedEvent(id: string): SavedEvent[] {
   const next = read().filter(e => e.id !== id)
   write(next)
+  dispatchChange()
   return next
 }
 
 export function togglePin(id: string): SavedEvent[] {
   const next = read().map(e => e.id === id ? { ...e, pinned: !e.pinned } : e)
   write(next)
+  dispatchChange()
   return next
 }
 
 export function toggleArchive(id: string): SavedEvent[] {
   const next = read().map(e => e.id === id ? { ...e, archived: !e.archived, pinned: false } : e)
   write(next)
+  dispatchChange()
   return next
 }
 

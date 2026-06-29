@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   loadSavedEvents, removeSavedEvent, togglePin, toggleArchive,
-  sortedEvents, type SavedEvent,
+  sortedEvents, SAVED_EVENTS_CHANGE_EVENT, type SavedEvent,
 } from '@/lib/saved-events'
 
 interface SavedEventsPanelProps {
@@ -65,6 +65,12 @@ export default function SavedEventsPanel({ visible, onClose, onSelect }: SavedEv
   useEffect(() => {
     if (visible) reload()
   }, [visible, reload])
+
+  // Refresh when any component mutates saved events (same-tab custom event)
+  useEffect(() => {
+    window.addEventListener(SAVED_EVENTS_CHANGE_EVENT, reload)
+    return () => window.removeEventListener(SAVED_EVENTS_CHANGE_EVENT, reload)
+  }, [reload])
 
   const activeEvents   = events.filter(e => !e.archived)
   const archivedEvents = events.filter(e => e.archived)

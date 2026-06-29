@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import DataBar from '@/components/ui/DataBar'
 import PulseRing from '@/components/ui/PulseRing'
 import type { ZoneSnapshot } from '@/lib/zone-cache'
+import type { SavedEvent } from '@/lib/saved-events'
 
 interface HospitalCounts {
   total: number
@@ -32,6 +33,7 @@ interface StatsPanelProps {
   location: string
   faultSystem: string
   dataStream: StreamItem[]
+  pinnedEvents?: SavedEvent[]
   isKnownEvent?: boolean
   onHospitalDetailOpen?: () => void
   zoneSnapshot?: ZoneSnapshot | null
@@ -60,6 +62,7 @@ export default function StatsPanel({
   location,
   faultSystem,
   dataStream,
+  pinnedEvents = [],
   isKnownEvent = true,
   onHospitalDetailOpen,
   zoneSnapshot,
@@ -188,42 +191,73 @@ export default function StatsPanel({
         </div>
       </div>
 
-      {/* ── Data stream ───────────────────────────────────────────────── */}
+      {/* ── Pinned saved events (top 3) ─────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '0.5rem 0.75rem 0.25rem', borderBottom: '1px solid rgba(26,58,74,0.5)' }}>
-          <Label>FLUJO DE DATOS EN VIVO</Label>
+          <Label>EVENTOS FIJADOS</Label>
         </div>
         <div
           ref={streamRef}
           style={{ flex: 1, overflowY: 'auto', padding: '0.375rem 0.75rem 0.75rem' }}
         >
-          {dataStream.length === 0 && (
+          {pinnedEvents.length === 0 && (
             <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-muted)', padding: '0.5rem 0' }}>
-              Esperando eventos...
+              Sin eventos fijados · usa ⬆ en el panel de eventos
             </div>
           )}
-          {dataStream.map((item, i) => (
-            <div key={i} style={{
-              display: 'flex',
-              gap: '0.5rem',
-              marginBottom: '0.5rem',
-              paddingBottom: '0.375rem',
-              borderBottom: '1px solid rgba(26,58,74,0.4)',
-              alignItems: 'flex-start',
-            }}>
-              <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.75rem', color: streamColor[item.type], flexShrink: 0, lineHeight: 1.4 }}>
-                ›
-              </span>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.75rem', color: streamColor[item.type], lineHeight: 1.4, wordBreak: 'break-word' }}>
-                  {item.text}
-                </div>
-                <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-muted)', marginTop: '0.125rem' }}>
-                  {item.time}
+          {pinnedEvents.map(ev => {
+            const magColor = ev.magnitude >= 7 ? 'var(--color-red)' : ev.magnitude >= 5.5 ? 'var(--color-amber)' : 'var(--color-cyan)'
+            return (
+              <div key={ev.id} style={{
+                display: 'flex',
+                gap: '0.5rem',
+                marginBottom: '0.5rem',
+                paddingBottom: '0.375rem',
+                borderBottom: '1px solid rgba(26,58,74,0.4)',
+                alignItems: 'flex-start',
+              }}>
+                <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.875rem', color: magColor, flexShrink: 0, lineHeight: 1.3, fontWeight: 700 }}>
+                  M{ev.magnitude.toFixed(1)}
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.6875rem', color: 'var(--color-text)', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                    {ev.label}
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5625rem', color: 'var(--color-muted)', marginTop: '0.1rem' }}>
+                    {new Date(ev.time).toISOString().slice(0, 10)} · {ev.place.slice(0, 32)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
+          {/* Recent seismic stream below pinned events */}
+          {dataStream.length > 0 && (
+            <>
+              <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', letterSpacing: '0.15em', margin: '0.375rem 0', paddingTop: '0.25rem', borderTop: '1px solid rgba(26,58,74,0.3)' }}>
+                ÚLTIMOS DETECTADOS
+              </div>
+              {dataStream.slice(0, 5).map((item, i) => (
+                <div key={i} style={{
+                  display: 'flex',
+                  gap: '0.5rem',
+                  marginBottom: '0.375rem',
+                  alignItems: 'flex-start',
+                }}>
+                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.75rem', color: streamColor[item.type], flexShrink: 0, lineHeight: 1.4 }}>
+                    ›
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: streamColor[item.type], lineHeight: 1.4, wordBreak: 'break-word' }}>
+                      {item.text}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5rem', color: 'var(--color-muted)', marginTop: '0.1rem' }}>
+                      {item.time}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       </div>
 

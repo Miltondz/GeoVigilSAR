@@ -97,6 +97,7 @@ interface MapLibreMapProps {
   usaidDeclarations?: UsaidDeclaration[]
   ftsFlows?: FtsFlow[]
   mapActive?: boolean
+  zoneBbox?: ViewportBbox | null
 }
 
 // Protomaps free tile style — no key required
@@ -131,6 +132,7 @@ export default function MapLibreMap({
   usaidDeclarations = [],
   ftsFlows = [],
   mapActive = true,
+  zoneBbox = null,
 }: MapLibreMapProps) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const mapRef        = useRef<maplibregl.Map | null>(null)
@@ -429,6 +431,47 @@ export default function MapLibreMap({
       duration: 1500,
     })
   }, [flyTo])
+
+  // Zone bbox highlight — drawn when user clicks "Analizar Zona"
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapLoaded) return
+    const SRC = 'zone-bbox-src'
+    const LYR_FILL = 'zone-bbox-fill'
+    const LYR_LINE = 'zone-bbox-line'
+
+    if (!zoneBbox) {
+      if (map.getLayer(LYR_FILL)) map.removeLayer(LYR_FILL)
+      if (map.getLayer(LYR_LINE)) map.removeLayer(LYR_LINE)
+      if (map.getSource(SRC))    map.removeSource(SRC)
+      return
+    }
+
+    const { minLng, minLat, maxLng, maxLat } = zoneBbox
+    const geojson: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[
+            [minLng, minLat], [maxLng, minLat],
+            [maxLng, maxLat], [minLng, maxLat],
+            [minLng, minLat],
+          ]],
+        },
+        properties: {},
+      }],
+    }
+
+    if (!map.getSource(SRC)) {
+      map.addSource(SRC, { type: 'geojson', data: geojson })
+      map.addLayer({ id: LYR_FILL, type: 'fill', source: SRC, paint: { 'fill-color': '#00B4FF', 'fill-opacity': 0.04 } })
+      map.addLayer({ id: LYR_LINE, type: 'line', source: SRC, paint: { 'line-color': '#00B4FF', 'line-width': 1.5, 'line-dasharray': [4, 3], 'line-opacity': 0.7 } })
+    } else {
+      ;(map.getSource(SRC) as import('maplibre-gl').GeoJSONSource).setData(geojson)
+    }
+  }, [mapLoaded, zoneBbox])
 
   const handleDamagePointClick = useCallback((point: DamagePoint) => {
     setSelectedNode(point)
