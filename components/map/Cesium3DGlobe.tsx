@@ -1380,8 +1380,8 @@ export default function Cesium3DGlobe({
         </div>
       )}
 
-      {/* Globe canvas target */}
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      {/* Globe canvas target — touch-action:none lets Cesium handle all touch gestures */}
+      <div ref={containerRef} style={{ width: '100%', height: '100%', touchAction: 'none' }} />
 
       {/* Loading state */}
       {!cesiumReady && !error && (

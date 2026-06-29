@@ -274,7 +274,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   const selectedAircraftIcao24  = selectedObject?.type === 'aircraft' ? selectedObject.icao24 : null
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative', touchAction: 'none' }}>
 
       {/* Canvas wrapper — filter applied here so WebGL (Cesium) + DOM (MapLibre) both affected */}
       <div

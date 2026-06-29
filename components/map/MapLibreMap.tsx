@@ -474,11 +474,11 @@ export default function MapLibreMap({
 
   return (
     <>
-      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        {/* MapLibre container */}
+      <div style={{ position: 'relative', width: '100%', height: '100%', touchAction: 'none' }}>
+        {/* MapLibre container — touch-action:none required for pan/pinch to reach MapLibre handlers */}
         <div
           ref={containerRef}
-          style={{ width: '100%', height: '100%', backgroundColor: '#00080E' }}
+          style={{ width: '100%', height: '100%', backgroundColor: '#00080E', touchAction: 'none' }}
         />
 
         {/* Dark overlay filter to make default tiles match HUD theme */}

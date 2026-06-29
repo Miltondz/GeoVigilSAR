@@ -316,7 +316,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
       {isMobile && (
         <>
           {/* Map always mounted (data loading), always behind sheets */}
-          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden', touchAction: 'none' }}>
             {mapEl}
           </div>
 
