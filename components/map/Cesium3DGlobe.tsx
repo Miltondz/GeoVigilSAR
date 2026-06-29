@@ -189,6 +189,22 @@ export default function Cesium3DGlobe({
         viewer.scene.backgroundColor =
           CesiumLib.Color.fromCssColorString(C_BG)
 
+        // Clock must tick for CallbackProperty animations (ring radius/alpha).
+        // animation:false disables the widget but also sets shouldAnimate=false,
+        // which freezes currentTime → callbacks cache never invalidates → rings frozen.
+        viewer.clock.shouldAnimate = true
+
+        // CRITICAL for animations: the Viewer is created with `animation: false`,
+        // so the animation widget never sets `clock.shouldAnimate = true`, leaving
+        // it at its default `false`. With shouldAnimate=false the clock is frozen —
+        // `clock.currentTime` (the `time` arg passed to every CallbackProperty) never
+        // advances, so `time.secondsOfDay` is constant and the per-frame radius/color
+        // caches keyed on it never invalidate. Result: pulse rings + wave pulse stay
+        // stuck at their initial 1 km radius (effectively invisible) and do not animate.
+        // Enabling the clock makes currentTime advance each frame → CallbackProperties
+        // re-evaluate → rings expand and fade.
+        viewer.clock.shouldAnimate = true
+
         // Fly to damage zone (La Guaira/Caracas corridor) at 60 km for city-level view
         viewer.camera.flyTo({
           destination: CesiumLib.Cartesian3.fromDegrees(-66.93, 10.52, 60_000),
