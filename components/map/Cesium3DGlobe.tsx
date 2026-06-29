@@ -32,9 +32,10 @@ const FAULT_SEGMENTS: number[][] = [
     -63.5, 10.4, -63.0, 10.3, -62.5, 10.2, -61.5, 10.1],
 ]
 
-const WAVE_PERIOD_S  = 30
-const WAVE_MAX_RADIUS = 800_000 // metres
-const IMPACT_RADIUS   = 100_000 // metres
+const WAVE_PERIOD_S   = 10       // seconds per wave cycle
+const WAVE_MAX_RADIUS = 250_000  // metres — realistic felt zone for M7.5
+const WAVE_COUNT      = 3        // staggered rings
+const IMPACT_RADIUS   = 100_000  // metres
 
 // Declare CESIUM_BASE_URL on window so we can set it before the dynamic import
 declare global {
@@ -391,59 +392,62 @@ export default function Cesium3DGlobe({
         faultEntitiesRef.current.push(ent)
       }
 
-      // Impact cone — 100 km radius centered on epicenter
+      // Impact zone — subtle 100 km fill, low alpha so it doesn't dominate
       const coneEnt = viewer.entities.add({
         show: !!(activeLayers.shakemap ?? true),
         position: CesiumLib.Cartesian3.fromDegrees(epicenter.lng, epicenter.lat),
         ellipse: {
           semiMajorAxis: IMPACT_RADIUS,
           semiMinorAxis: IMPACT_RADIUS,
-          material: CesiumLib.Color.fromCssColorString(C_RED).withAlpha(0.18),
+          material: CesiumLib.Color.fromCssColorString(C_RED).withAlpha(0.07),
           height: 0,
         },
       })
       impactEntitiesRef.current.push(coneEnt)
 
-      // Seismic wave pulse — animated ellipse expanding from epicenter
+      // Seismic wave rings — WAVE_COUNT staggered pulses expanding from epicenter.
+      // Each ring fades in then out as it expands; max alpha kept very low (0.07)
+      // so the rings are subtle overlays, not solid fills.
       const waveStart = Date.now()
+      const periodMs  = WAVE_PERIOD_S * 1000
 
-      // Cache radius per Cesium frame: both semiMajorAxis and semiMinorAxis share
-      // this same CallbackProperty instance. Using secondsOfDay as cache key ensures
-      // both return the identical value within one render tick, preventing the
-      // semiMajorAxis < semiMinorAxis error at period-reset boundaries.
-      let _waveR = 1000
-      let _waveT = -1
-      const waveRadius = new CesiumLib.CallbackProperty((time?: { secondsOfDay: number }) => {
-        if (time && time.secondsOfDay !== _waveT) {
-          const elapsed = (Date.now() - waveStart) / 1000
-          _waveR = Math.max(1000, ((elapsed % WAVE_PERIOD_S) / WAVE_PERIOD_S) * WAVE_MAX_RADIUS)
-          _waveT = time.secondsOfDay
-        }
-        return _waveR
-      }, false)
+      for (let wi = 0; wi < WAVE_COUNT; wi++) {
+        const phaseMs = (wi / WAVE_COUNT) * periodMs
+        let _r = 1_000, _rt = -1
+        let _a = 0,     _at = -1
 
-      // Wave fill alpha fades as the wave expands (brighter at origin, dim at edge)
-      let _waveAlpha = 0.35, _waveAt2 = -1
-      const waveMaterial = new CesiumLib.CallbackProperty((time?: { secondsOfDay: number }) => {
-        if (time && time.secondsOfDay !== _waveAt2) {
-          const t = ((Date.now() - waveStart) / 1000 % WAVE_PERIOD_S) / WAVE_PERIOD_S
-          _waveAlpha = Math.max(0, 0.35 * (1 - t))
-          _waveAt2 = time.secondsOfDay
-        }
-        return CesiumLib.Color.fromCssColorString(C_AMBER).withAlpha(_waveAlpha)
-      }, false)
+        const waveRadius = new CesiumLib.CallbackProperty((time?: { secondsOfDay: number }) => {
+          if (time && time.secondsOfDay !== _rt) {
+            const t = ((Date.now() - waveStart + phaseMs) % periodMs) / periodMs
+            _r  = Math.max(1_000, t * WAVE_MAX_RADIUS)
+            _rt = time.secondsOfDay
+          }
+          return _r
+        }, false)
 
-      const waveEnt = viewer.entities.add({
-        show: !!(activeLayers.shakemap ?? true),
-        position: CesiumLib.Cartesian3.fromDegrees(epicenter.lng, epicenter.lat),
-        ellipse: {
-          semiMajorAxis: waveRadius,
-          semiMinorAxis: waveRadius,
-          material: new CesiumLib.ColorMaterialProperty(waveMaterial),
-          height: 0,
-        },
-      })
-      impactEntitiesRef.current.push(waveEnt)
+        const waveMat = new CesiumLib.CallbackProperty((time?: { secondsOfDay: number }) => {
+          if (time && time.secondsOfDay !== _at) {
+            const t = ((Date.now() - waveStart + phaseMs) % periodMs) / periodMs
+            // Fade in quickly (0→0.1), then fade out (0.1→1) — ring effect
+            const env = t < 0.1 ? t / 0.1 : 1 - t
+            _a  = Math.max(0, 0.07 * env)
+            _at = time.secondsOfDay
+          }
+          return CesiumLib.Color.fromCssColorString(C_AMBER).withAlpha(_a)
+        }, false)
+
+        const waveEnt = viewer.entities.add({
+          show: !!(activeLayers.shakemap ?? true),
+          position: CesiumLib.Cartesian3.fromDegrees(epicenter.lng, epicenter.lat),
+          ellipse: {
+            semiMajorAxis: waveRadius,
+            semiMinorAxis: waveRadius,
+            material: new CesiumLib.ColorMaterialProperty(waveMat),
+            height: 0,
+          },
+        })
+        impactEntitiesRef.current.push(waveEnt)
+      }
     }
 
     addStaticGeometry()
