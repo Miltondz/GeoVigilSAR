@@ -19,6 +19,7 @@ import type { SavedEvent } from '@/lib/saved-events'
 import type { ZoneSnapshot } from '@/lib/zone-cache'
 import type { VisionMode } from '@/components/map/overlays/VisionModeOverlay'
 import { getEvent, EVENT_REGISTRY } from '@/lib/events/index'
+import { useIsMobile } from '@/hooks/useIsMobile'
 
 const DEFAULT_LAYERS: Record<string, boolean> = {
   epicenters:      true,
@@ -87,6 +88,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   } | null>(null)
   const [viewMode, setViewMode]   = useState<'2d' | '3d'>('3d')
   const [visionMode, setVisionMode] = useState<VisionMode>('CRT')
+  const isMobile = useIsMobile()
+  const [mobileTab, setMobileTab] = useState<'map' | 'stats' | 'ai'>('map')
 
   useEffect(() => {
     setHumanStats(null)
@@ -222,6 +225,46 @@ export default function DashboardPage({ params }: { params: { locale: string } }
     [sortedEqs]
   )
 
+  const MOBILE_TAB_H = 52
+  const MOBILE_HEADER_H = 48
+
+  const statsPanel = (
+    <StatsPanel
+      eventId={activeEventId}
+      stats={stats}
+      mainShocks={mainShocks}
+      location={viewportLocation}
+      faultSystem={event.faultSystem}
+      dataStream={dataStream}
+      onHospitalDetailOpen={() => setHospitalPanelOpen(true)}
+      zoneSnapshot={zoneSnapshot}
+      onClearZone={() => { setZoneSnapshot(null); setZoneDetailOpen(false) }}
+      onViewZoneDetail={() => setZoneDetailOpen(true)}
+    />
+  )
+
+  const aiPanel = <AIPanel eventId={activeEventId} isConnected={true} />
+
+  const mapEl = (
+    <GeoVigilMap
+      activeLayers={activeLayers}
+      eventId={activeEventId}
+      onEarthquakesLoaded={setLiveEarthquakes}
+      onViewportChange={handleViewportChange}
+      onZoneSnapshot={handleZoneSnapshot}
+      currentZoneSnapshot={zoneSnapshot}
+      timelinePhase={timelinePhase}
+      timelineMs={timelineMs}
+      flyTo={mapTarget}
+      damagePoints={event.damageAssessment ?? []}
+      dateFilter={dateFilter}
+      viewMode={viewMode}
+      onViewModeChange={setViewMode}
+      visionMode={visionMode}
+      onVisionModeChange={setVisionMode}
+    />
+  )
+
   return (
     <div style={{
       display: 'flex',
@@ -250,57 +293,95 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         visionMode={visionMode}
         onVisionModeChange={setVisionMode}
         earthquakes={liveEarthquakes}
+        isMobile={isMobile}
       />
 
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
-        <StatsPanel
-          eventId={activeEventId}
-          stats={stats}
-          mainShocks={mainShocks}
-          location={viewportLocation}
-          faultSystem={event.faultSystem}
-          dataStream={dataStream}
-          onHospitalDetailOpen={() => setHospitalPanelOpen(true)}
-          zoneSnapshot={zoneSnapshot}
-          onClearZone={() => { setZoneSnapshot(null); setZoneDetailOpen(false) }}
-          onViewZoneDetail={() => setZoneDetailOpen(true)}
-        />
+      {/* ── Desktop layout ── */}
+      {!isMobile && (
+        <>
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+            {statsPanel}
+            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+              {mapEl}
+            </div>
+            {aiPanel}
+          </div>
+          <div style={{ height: 40, backgroundColor: 'var(--color-panel)', borderTop: '1px solid var(--color-slate)', flexShrink: 0 }}>
+            <TimelineSlider events={timelineEvents} value={timelineValue} onChange={setTimelineValue} />
+          </div>
+        </>
+      )}
 
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-          <GeoVigilMap
-            activeLayers={activeLayers}
-            eventId={activeEventId}
-            onEarthquakesLoaded={setLiveEarthquakes}
-            onViewportChange={handleViewportChange}
-            onZoneSnapshot={handleZoneSnapshot}
-            currentZoneSnapshot={zoneSnapshot}
-            timelinePhase={timelinePhase}
-            timelineMs={timelineMs}
-            flyTo={mapTarget}
-            damagePoints={event.damageAssessment ?? []}
-            dateFilter={dateFilter}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            visionMode={visionMode}
-            onVisionModeChange={setVisionMode}
-          />
-        </div>
+      {/* ── Mobile layout — full-screen map + bottom tab sheets ── */}
+      {isMobile && (
+        <>
+          {/* Map always mounted (data loading), always behind sheets */}
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            {mapEl}
+          </div>
 
-        <AIPanel eventId={activeEventId} isConnected={true} />
-      </div>
+          {/* Bottom sheet — appears above map when stats/ai tab active */}
+          {mobileTab !== 'map' && (
+            <div style={{
+              position: 'fixed',
+              bottom: MOBILE_TAB_H,
+              left: 0, right: 0,
+              height: `calc(100vh - ${MOBILE_HEADER_H + MOBILE_TAB_H}px)`,
+              backgroundColor: 'var(--color-panel)',
+              borderTop: '2px solid var(--color-slate)',
+              overflowY: 'auto',
+              zIndex: 150,
+              display: 'flex',
+              flexDirection: 'column',
+            }}>
+              {mobileTab === 'stats' && statsPanel}
+              {mobileTab === 'ai'    && aiPanel}
+            </div>
+          )}
 
-      <div style={{
-        height: 40,
-        backgroundColor: 'var(--color-panel)',
-        borderTop: '1px solid var(--color-slate)',
-        flexShrink: 0,
-      }}>
-        <TimelineSlider
-          events={timelineEvents}
-          value={timelineValue}
-          onChange={setTimelineValue}
-        />
-      </div>
+          {/* Bottom tab bar */}
+          <div style={{
+            height: MOBILE_TAB_H,
+            backgroundColor: 'var(--color-panel)',
+            borderTop: '1px solid var(--color-slate)',
+            display: 'flex',
+            alignItems: 'stretch',
+            flexShrink: 0,
+            zIndex: 200,
+          }}>
+            {([
+              { id: 'map',   icon: '⬡', label: 'MAPA'  },
+              { id: 'stats', icon: '◈', label: 'DATOS'  },
+              { id: 'ai',    icon: '◉', label: 'IA'     },
+            ] as const).map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setMobileTab(tab.id)}
+                style={{
+                  flex: 1,
+                  background: 'none',
+                  border: 'none',
+                  borderTop: `2px solid ${mobileTab === tab.id ? 'var(--color-green)' : 'transparent'}`,
+                  color: mobileTab === tab.id ? 'var(--color-green)' : 'var(--color-muted)',
+                  fontFamily: 'var(--font-hud)',
+                  fontSize: '0.5rem',
+                  letterSpacing: '0.12em',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.2rem',
+                  cursor: 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+              >
+                <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       <SavedEventsPanel
         visible={savedEventsPanelOpen}

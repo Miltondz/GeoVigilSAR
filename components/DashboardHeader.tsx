@@ -26,6 +26,7 @@ interface DashboardHeaderProps {
   dateFilter: DateRange
   onDateFilterChange: (v: DateRange) => void
   viewportBbox?: { minLat: number; maxLat: number; minLng: number; maxLng: number } | null
+  isMobile?: boolean
   viewMode: '2d' | '3d'
   onViewModeChange: (m: '2d' | '3d') => void
   visionMode: VisionMode
@@ -50,6 +51,7 @@ export default function DashboardHeader({
   dateFilter,
   onDateFilterChange,
   viewportBbox,
+  isMobile = false,
   viewMode,
   onViewModeChange,
   visionMode,
@@ -95,42 +97,27 @@ export default function DashboardHeader({
       {/* Event selector */}
       <EventSelector activeEventId={eventId} onSelect={onEventChange} viewportBbox={viewportBbox} />
 
-      {/* Event label */}
-      <div style={{
-        fontFamily: 'var(--font-hud)',
-        fontSize: '0.5rem',
-        color: 'var(--color-muted)',
-        letterSpacing: '0.08em',
-        display: 'none',
-      }}>
-        {event.faultSystem}
-      </div>
-
       {/* Live badge */}
       <StatusBadge status={event.status === 'active' ? 'live' : 'offline'} label={event.status === 'active' ? 'EN VIVO' : 'ARCHIVO'} />
 
-      <div style={{ width: 1, height: 20, backgroundColor: 'var(--color-slate)', flexShrink: 0 }} />
-
-      <DateFilter
-        value={dateFilter}
-        minDate="2026-06-24"
-        onChange={onDateFilterChange}
-      />
-
-      <div style={{ width: 1, height: 20, backgroundColor: 'var(--color-slate)', flexShrink: 0 }} />
-
-      <VisionModeControl mode={visionMode} onChange={onVisionModeChange} />
-
-      <div style={{ width: 1, height: 20, backgroundColor: 'var(--color-slate)', flexShrink: 0 }} />
-
-      <ViewModeToggle mode={viewMode} onChange={onViewModeChange} />
+      {/* Desktop-only controls */}
+      {!isMobile && (
+        <>
+          <div style={{ width: 1, height: 20, backgroundColor: 'var(--color-slate)', flexShrink: 0 }} />
+          <DateFilter value={dateFilter} minDate="2026-06-24" onChange={onDateFilterChange} />
+          <div style={{ width: 1, height: 20, backgroundColor: 'var(--color-slate)', flexShrink: 0 }} />
+          <VisionModeControl mode={visionMode} onChange={onVisionModeChange} />
+          <div style={{ width: 1, height: 20, backgroundColor: 'var(--color-slate)', flexShrink: 0 }} />
+          <ViewModeToggle mode={viewMode} onChange={onViewModeChange} />
+        </>
+      )}
 
       <div style={{ flex: 1 }} />
 
       {/* Controls right */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-        {/* Saved events */}
-        {onSavedEventsOpen && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        {/* Saved events — desktop only */}
+        {!isMobile && onSavedEventsOpen && (
           <button
             onClick={onSavedEventsOpen}
             title="Eventos guardados"
@@ -152,11 +139,13 @@ export default function DashboardHeader({
           </button>
         )}
 
-        {/* Zone search */}
-        <ZoneSearch
-          onResult={r => onZoomTo?.(r.lat, r.lng, r.name)}
-          placeholder={locale === 'es' ? 'BUSCAR ZONA...' : 'SEARCH ZONE...'}
-        />
+        {/* Zone search — desktop only */}
+        {!isMobile && (
+          <ZoneSearch
+            onResult={r => onZoomTo?.(r.lat, r.lng, r.name)}
+            placeholder={locale === 'es' ? 'BUSCAR ZONA...' : 'SEARCH ZONE...'}
+          />
+        )}
 
         {/* System health / connections button */}
         {onSystemHealthOpen && (
@@ -190,30 +179,32 @@ export default function DashboardHeader({
           </button>
         )}
 
-        {/* Locale toggle */}
-        <button
-          onClick={() => router.push(`/${otherLocale}`)}
-          style={{
-            fontFamily: 'var(--font-hud)',
-            fontSize: '0.625rem',
-            letterSpacing: '0.15em',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            gap: '0.2rem',
-            alignItems: 'center',
-          }}
-        >
-          <span style={{ color: locale === 'es' ? 'var(--color-green)' : 'var(--color-muted)' }}>ES</span>
-          <span style={{ color: 'var(--color-slate)' }}>|</span>
-          <span style={{ color: locale === 'en' ? 'var(--color-green)' : 'var(--color-muted)' }}>EN</span>
-        </button>
+        {/* Locale toggle — desktop only */}
+        {!isMobile && (
+          <button
+            onClick={() => router.push(`/${otherLocale}`)}
+            style={{
+              fontFamily: 'var(--font-hud)',
+              fontSize: '0.625rem',
+              letterSpacing: '0.15em',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              gap: '0.2rem',
+              alignItems: 'center',
+            }}
+          >
+            <span style={{ color: locale === 'es' ? 'var(--color-green)' : 'var(--color-muted)' }}>ES</span>
+            <span style={{ color: 'var(--color-slate)' }}>|</span>
+            <span style={{ color: locale === 'en' ? 'var(--color-green)' : 'var(--color-muted)' }}>EN</span>
+          </button>
+        )}
 
         <LayerToggle layers={activeLayers} onChange={onLayersChange} />
 
-        {/* DATA SOURCES button */}
-        {onDataSourcesOpen && (
+        {/* DATA SOURCES + SITREP + Export — desktop only */}
+        {!isMobile && onDataSourcesOpen && (
           <button
             onClick={onDataSourcesOpen}
             style={{
@@ -232,8 +223,7 @@ export default function DashboardHeader({
           </button>
         )}
 
-        {/* SITREP button */}
-        {onSitrepOpen && (
+        {!isMobile && onSitrepOpen && (
           <button
             onClick={onSitrepOpen}
             style={{
@@ -252,11 +242,13 @@ export default function DashboardHeader({
           </button>
         )}
 
-        <ExportMenu
-          eventId={eventId}
-          earthquakes={earthquakes}
-          stats={{ eventId, timestamp: Date.now() }}
-        />
+        {!isMobile && (
+          <ExportMenu
+            eventId={eventId}
+            earthquakes={earthquakes}
+            stats={{ eventId, timestamp: Date.now() }}
+          />
+        )}
       </div>
     </header>
   )
