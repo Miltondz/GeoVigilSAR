@@ -45,17 +45,27 @@ export default function BuoysLayer({ map, buoys, visible, onSelect }: BuoysLayer
     if (!map.getSource(SRC)) {
       map.addSource(SRC, { type: 'geojson', data: toGeoJSON([]) })
     }
+    // ◆ diamond marker — clearly distinct from earthquake circles
     if (!map.getLayer(LYR_DOT)) {
       map.addLayer({
-        id: LYR_DOT, type: 'circle', source: SRC,
-        paint: {
-          'circle-radius': ['coalesce', ['get', 'radius'], 7],
-          'circle-color': '#00B4FF', // --color-cyan
-          'circle-opacity': 0.8,
-          'circle-stroke-color': '#001A24',
-          'circle-stroke-width': 1.5,
+        id: LYR_DOT, type: 'symbol', source: SRC,
+        layout: {
+          'text-field':            '◆',
+          'text-font':             ['Arial Unicode MS Bold', 'Open Sans Bold'],
+          'text-size':             [
+            'interpolate', ['linear'], ['coalesce', ['get', 'radius'], 7],
+            5, 12, 18, 22,
+          ],
+          'text-allow-overlap':    true,
+          'text-ignore-placement': true,
+          visibility: visible ? 'visible' : 'none',
         },
-        layout: { visibility: visible ? 'visible' : 'none' },
+        paint: {
+          'text-color':      '#00B4FF',
+          'text-halo-color': '#000A0F',
+          'text-halo-width': 1.5,
+          'text-opacity':    0.85,
+        },
       })
     }
     if (!map.getLayer(LYR_LBL)) {

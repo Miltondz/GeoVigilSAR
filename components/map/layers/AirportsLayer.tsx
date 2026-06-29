@@ -35,26 +35,33 @@ export default function AirportsLayer({ map, airports, visible, onSelect }: Airp
     if (!map.getSource(SRC)) {
       map.addSource(SRC, { type: 'geojson', data: toGeoJSON([]) })
     }
+    // ✈ airplane symbol — clearly distinct from earthquake circles
     if (!map.getLayer(LYR_CIRCLE)) {
       map.addLayer({
-        id: LYR_CIRCLE, type: 'circle', source: SRC,
-        paint: {
-          'circle-radius': 8,
-          'circle-color': '#00B4FF', // --color-cyan
-          'circle-opacity': 0.85,
-          'circle-stroke-color': '#001A24',
-          'circle-stroke-width': 1.5,
+        id: LYR_CIRCLE, type: 'symbol', source: SRC,
+        layout: {
+          'text-field':             '✈',
+          'text-font':              ['Arial Unicode MS Bold', 'Open Sans Bold'],
+          'text-size':              18,
+          'text-allow-overlap':     true,
+          'text-ignore-placement':  true,
+          visibility: visible ? 'visible' : 'none',
         },
-        layout: { visibility: visible ? 'visible' : 'none' },
+        paint: {
+          'text-color':       '#00B4FF',
+          'text-halo-color':  '#000A0F',
+          'text-halo-width':  2,
+          'text-opacity':     0.95,
+        },
       })
     }
     if (!map.getLayer(LYR_LABEL)) {
       map.addLayer({
         id: LYR_LABEL, type: 'symbol', source: SRC,
         layout: {
-          'text-field': ['get', 'iataCode'],
-          'text-size': 10,
-          'text-offset': [0, 1.6],
+          'text-field':  ['get', 'iataCode'],
+          'text-size':   9,
+          'text-offset': [0, 1.5],
           'text-anchor': 'top',
           visibility: visible ? 'visible' : 'none',
         },
