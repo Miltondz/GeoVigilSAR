@@ -7,6 +7,9 @@ import EventSelector from '@/components/EventSelector'
 import ExportMenu from '@/components/ui/ExportMenu'
 import ZoneSearch from '@/components/map/controls/ZoneSearch'
 import DateFilter, { type DateRange } from '@/components/map/controls/DateFilter'
+import ViewModeToggle from '@/components/map/controls/ViewModeToggle'
+import VisionModeControl from '@/components/map/controls/VisionModeControl'
+import type { VisionMode } from '@/components/map/overlays/VisionModeOverlay'
 import { getEvent } from '@/lib/events/index'
 
 interface DashboardHeaderProps {
@@ -22,6 +25,11 @@ interface DashboardHeaderProps {
   onSavedEventsOpen?: () => void
   dateFilter: DateRange
   onDateFilterChange: (v: DateRange) => void
+  viewportBbox?: { minLat: number; maxLat: number; minLng: number; maxLng: number } | null
+  viewMode: '2d' | '3d'
+  onViewModeChange: (m: '2d' | '3d') => void
+  visionMode: VisionMode
+  onVisionModeChange: (m: VisionMode) => void
   earthquakes?: {
     id: string; magnitude: number; depth: number; lat: number; lng: number
     time: number; place: string; classification: string
@@ -41,6 +49,11 @@ export default function DashboardHeader({
   onSavedEventsOpen,
   dateFilter,
   onDateFilterChange,
+  viewportBbox,
+  viewMode,
+  onViewModeChange,
+  visionMode,
+  onVisionModeChange,
   earthquakes = [],
 }: DashboardHeaderProps) {
   const router = useRouter()
@@ -80,7 +93,7 @@ export default function DashboardHeader({
       <div style={{ width: 1, height: 20, backgroundColor: 'var(--color-slate)', flexShrink: 0 }} />
 
       {/* Event selector */}
-      <EventSelector activeEventId={eventId} onSelect={onEventChange} />
+      <EventSelector activeEventId={eventId} onSelect={onEventChange} viewportBbox={viewportBbox} />
 
       {/* Event label */}
       <div style={{
@@ -103,6 +116,14 @@ export default function DashboardHeader({
         minDate="2026-06-24"
         onChange={onDateFilterChange}
       />
+
+      <div style={{ width: 1, height: 20, backgroundColor: 'var(--color-slate)', flexShrink: 0 }} />
+
+      <VisionModeControl mode={visionMode} onChange={onVisionModeChange} />
+
+      <div style={{ width: 1, height: 20, backgroundColor: 'var(--color-slate)', flexShrink: 0 }} />
+
+      <ViewModeToggle mode={viewMode} onChange={onViewModeChange} />
 
       <div style={{ flex: 1 }} />
 

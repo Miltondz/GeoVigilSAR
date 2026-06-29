@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect } from 'react'
-import type { Map as MapLibreMap } from 'maplibre-gl'
+import { Marker } from 'maplibre-gl'
+import type { Map as MapLibreMap, GeoJSONSource } from 'maplibre-gl'
 import { isMapAlive } from './mapUtils'
 
 interface Earthquake {
@@ -63,7 +64,7 @@ export default function EarthquakeLayer({ map, earthquakes, visible, showAfterSh
     if (!map.getSource(SOURCE_ID)) {
       map.addSource(SOURCE_ID, { type: 'geojson', data: geojson, cluster: true, clusterMaxZoom: 9, clusterRadius: 40 })
     } else {
-      ;(map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource).setData(geojson)
+      ;(map.getSource(SOURCE_ID) as GeoJSONSource).setData(geojson)
     }
 
     // Cluster circles
@@ -122,6 +123,41 @@ export default function EarthquakeLayer({ map, earthquakes, visible, showAfterSh
       if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID)
     }
   }, [map, earthquakes, visible, showAfterShocks])
+
+  // ── Pulse ring HTML markers (CSS keyframe animation) ──────────────────────
+  useEffect(() => {
+    if (!isMapAlive(map) || !visible) return
+    const markers: Marker[] = []
+
+    for (const eq of earthquakes) {
+      let color = '', duration = 0, rings = 0
+      if      (eq.magnitude >= 7) { color = '#FF4444'; duration = 0.8; rings = 3 }
+      else if (eq.magnitude >= 6) { color = '#FF4444'; duration = 1.0; rings = 3 }
+      else if (eq.magnitude >= 5) { color = '#FF4444'; duration = 1.5; rings = 2 }
+      else if (eq.magnitude >= 4) { color = '#FFB800'; duration = 2.5; rings = 2 }
+      else if (eq.magnitude >= 3) { color = '#FFB800'; duration = 3.5; rings = 1 }
+      if (rings === 0) continue
+
+      const size = magnitudeToRadius(eq.magnitude) * 3
+      const el = document.createElement('div')
+      el.style.cssText = `position:relative;width:${size}px;height:${size}px;pointer-events:none;`
+
+      for (let i = 0; i < rings; i++) {
+        const ring = document.createElement('span')
+        ring.style.cssText = `position:absolute;inset:0;border-radius:50%;border:2px solid ${color};animation:pulse-ring ${duration}s ease-out ${i * (duration / rings)}s infinite;box-shadow:0 0 6px ${color};`
+        el.appendChild(ring)
+      }
+
+      const dot = document.createElement('span')
+      dot.style.cssText = `position:absolute;inset:25%;border-radius:50%;background:${color};box-shadow:0 0 8px ${color};`
+      el.appendChild(dot)
+
+      const m = new Marker({ element: el, anchor: 'center' }).setLngLat([eq.lng, eq.lat]).addTo(map)
+      markers.push(m)
+    }
+
+    return () => { markers.forEach(m => m.remove()) }
+  }, [map, earthquakes, visible])
 
   return null
 }

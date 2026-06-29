@@ -185,9 +185,17 @@ export default function LayerToggle({ layers, onChange, className = '' }: LayerT
               <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.625rem', color: 'var(--color-muted)', letterSpacing: '0.15em' }}>
                 CONTROL DE CAPAS
               </span>
-              <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5625rem', color: 'var(--color-green)' }}>
-                {totalActive} activas
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5625rem', color: 'var(--color-green)' }}>
+                  {totalActive} activas
+                </span>
+                <button
+                  onClick={() => setOpen(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '0.75rem', lineHeight: 1, padding: '0 0.125rem' }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Groups */}

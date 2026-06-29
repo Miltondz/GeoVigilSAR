@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import type { SelectedMapObject } from '@/lib/types/map-selection'
 import type { FlightRoute, FlightAirport } from '@/lib/airports'
 import { countryFlag } from '@/lib/country-flags'
@@ -208,6 +208,13 @@ function AirportBadge({ ap, role }: { ap: FlightAirport; role: 'DEP' | 'ARR' }) 
 export default function MapDetailPanel({ object, onClose, eventId, flightRoute }: MapDetailPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const [saved, setSaved] = useState(false)
+  const [pos, setPos] = useState({ x: 20, y: 60 })
+  const drag = useRef({ on: false, ox: 0, oy: 0, px: 0, py: 0 })
+
+  // Position to top-right on mount
+  useEffect(() => {
+    setPos({ x: Math.max(0, window.innerWidth - 360), y: 60 })
+  }, [])
 
   useEffect(() => {
     if (!object) { setSaved(false); return }
@@ -234,17 +241,25 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
       magnitude: object.magnitude,
       depth:     object.depth,
       time:      object.time,
-      eventId:   undefined,
+      eventId,
     })
     setSaved(true)
   }
 
-  const visible = object !== null
+  const onPtrDown = useCallback((e: React.PointerEvent) => {
+    drag.current = { on: true, ox: e.clientX, oy: e.clientY, px: pos.x, py: pos.y }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }, [pos])
 
-  // Click outside to close
-  const handleBackdrop = (e: React.MouseEvent) => {
-    if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose()
-  }
+  const onPtrMove = useCallback((e: React.PointerEvent) => {
+    if (!drag.current.on) return
+    setPos({
+      x: Math.max(0, Math.min(window.innerWidth - 340, drag.current.px + e.clientX - drag.current.ox)),
+      y: Math.max(0, Math.min(window.innerHeight - 100, drag.current.py + e.clientY - drag.current.oy)),
+    })
+  }, [])
+
+  const onPtrUp = useCallback(() => { drag.current.on = false }, [])
 
   if (!object) return null
 
@@ -252,61 +267,89 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
   const isDmg      = object.type === 'damage'
   const isSat      = object.type === 'satellite'
   const isAircraft = object.type === 'aircraft'
+  const isAirport  = object.type === 'airport'
+  const isWeather  = object.type === 'weather'
+  const isBuoy     = object.type === 'buoy'
+  const isOsm      = object.type === 'osm'
+  const isAdmin    = object.type === 'admin'
+  const isUsaid    = object.type === 'usaid'
+  const isFunding  = object.type === 'funding'
 
   const keyword   = isEq ? placeKeyword(object.place) : isDmg ? object.address.split('—')[0].trim() : ''
+
   const typeColor = isEq
     ? (object.magnitude >= 6.5 ? 'var(--color-red)' : 'var(--color-amber)')
     : isDmg
     ? (object.damageType === 'collapsed' ? 'var(--color-red)' : 'var(--color-amber)')
-    : isAircraft && object.onGround ? 'var(--color-muted)' : 'var(--color-cyan)'
+    : isAircraft
+    ? (object.onGround ? 'var(--color-muted)' : 'var(--color-cyan)')
+    : isUsaid
+    ? (object.status === 'Active' ? 'var(--color-green)' : 'var(--color-muted)')
+    : isFunding ? 'var(--color-amber)'
+    : 'var(--color-cyan)'
+
   const typeBadge = isEq
     ? `M ${object.magnitude.toFixed(1)} SISMO`
     : isDmg
     ? (object.damageType === 'collapsed' ? 'COLAPSO ESTRUCTURAL' : object.damageType === 'damaged' ? 'DAÑO ESTRUCTURAL' : 'ZONA AFECTADA')
     : isSat ? `${object.orbitClass} · NORAD ${object.noradId}`
-    : isAircraft ? (object.onGround ? 'EN TIERRA' : 'EN VUELO') : ''
-  const title     = isEq ? object.place
+    : isAircraft ? (object.onGround ? 'EN TIERRA' : 'EN VUELO')
+    : isAirport ? 'AEROPUERTO'
+    : isWeather ? 'ESTACIÓN CLIMA'
+    : isBuoy ? 'BOYA NOAA'
+    : isOsm ? object.kind.toUpperCase().replace('_', ' ')
+    : isAdmin ? 'LÍMITE ADMINISTRATIVO'
+    : isUsaid ? `USAID · ${object.disasterType}`
+    : isFunding ? 'FLUJO FINANCIAMIENTO ONU'
+    : ''
+
+  const title = isEq ? object.place
     : isDmg ? object.address
     : isSat ? object.name
-    : isAircraft ? `${object.callsign} — ${object.originCountry}` : ''
+    : isAircraft ? `${object.callsign} — ${object.originCountry}`
+    : isAirport ? `${object.name} (${object.iata})`
+    : isWeather ? `${object.lat.toFixed(2)}°N ${Math.abs(object.lng).toFixed(2)}°W`
+    : isBuoy ? `Boya ${object.id}`
+    : isOsm ? object.name
+    : isAdmin ? object.name
+    : isUsaid ? `${object.country} — ${object.disasterType}`
+    : isFunding ? object.organization
+    : ''
 
   return (
-    /* backdrop */
+    /* floating draggable modal */
     <div
-      onClick={handleBackdrop}
+      ref={panelRef}
       style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 45,
-        pointerEvents: visible ? 'auto' : 'none',
+        position: 'fixed',
+        left: pos.x,
+        top: pos.y,
+        width: 340,
+        maxHeight: 'calc(100vh - 80px)',
+        backgroundColor: 'rgba(0,26,36,0.97)',
+        border: `1px solid ${typeColor}`,
+        display: 'flex',
+        flexDirection: 'column',
+        backdropFilter: 'blur(6px)',
+        zIndex: 200,
+        boxShadow: `0 4px 32px rgba(0,0,0,0.6), 0 0 0 1px ${typeColor}22`,
+        userSelect: 'none',
       }}
     >
-      {/* panel */}
+      {/* drag handle = header */}
       <div
-        ref={panelRef}
+        onPointerDown={onPtrDown}
+        onPointerMove={onPtrMove}
+        onPointerUp={onPtrUp}
         style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: 340,
-          height: '100%',
-          backgroundColor: 'rgba(0,26,36,0.97)',
-          borderLeft: `1px solid ${typeColor}`,
-          display: 'flex',
-          flexDirection: 'column',
-          transform: visible ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 0.22s ease',
-          backdropFilter: 'blur(4px)',
-        }}
-      >
-        {/* header */}
-        <div style={{
           padding: '0.625rem 0.75rem',
           borderBottom: '1px solid var(--color-slate)',
           display: 'flex',
           alignItems: 'flex-start',
           gap: '0.5rem',
-        }}>
+          cursor: 'move',
+        }}
+      >
           <div style={{ flex: 1 }}>
             <div style={{
               display: 'inline-block',
@@ -374,8 +417,8 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
           </div>
         </div>
 
-        {/* scrollable content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      {/* scrollable content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
 
           {/* ── earthquake metadata ── */}
           {isEq && (
@@ -579,6 +622,76 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
             )
           })()}
 
+          {/* ── airport metadata ── */}
+          {isAirport && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+              <MetaCell label="IATA"  value={object.iata}  accent="var(--color-cyan)" />
+              <MetaCell label="ICAO"  value={object.icao}  accent="var(--color-cyan)" />
+              <MetaCell label="PAÍS"  value={object.country} />
+              <MetaCell label="COORD" value={`${object.lat.toFixed(3)}°, ${object.lng.toFixed(3)}°`} />
+            </div>
+          )}
+
+          {/* ── weather metadata ── */}
+          {isWeather && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+              <MetaCell label="TEMPERATURA"   value={`${object.temp}°C`}          accent="var(--color-amber)" />
+              <MetaCell label="VIENTO"        value={`${object.windSpeed} km/h`}  accent="var(--color-cyan)" />
+              <MetaCell label="DIRECCIÓN"     value={`${object.windDir}°`} />
+              <MetaCell label="RÁFAGAS"       value={`${object.windGusts} km/h`}  accent={object.windGusts > 60 ? 'var(--color-red)' : undefined} />
+              <MetaCell label="PRECIPITACIÓN" value={`${object.precip} mm`}       accent={object.precip > 1 ? 'var(--color-amber)' : undefined} />
+              <MetaCell label="NUBES"         value={`${object.cloudCover}%`} />
+            </div>
+          )}
+
+          {/* ── buoy metadata ── */}
+          {isBuoy && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+              <MetaCell label="OLA (m)"        value={object.waveHeight != null ? `${object.waveHeight} m` : '—'} accent="var(--color-cyan)" />
+              <MetaCell label="T° MAR"         value={object.seaTemp != null ? `${object.seaTemp}°C` : '—'} />
+              <MetaCell label="T° AIRE"        value={object.airTemp  != null ? `${object.airTemp}°C` : '—'} />
+              <MetaCell label="PRESIÓN"        value={object.pressure != null ? `${object.pressure} hPa` : '—'} />
+              <MetaCell label="VIENTO (m/s)"   value={object.windSpeed != null ? `${object.windSpeed} m/s` : '—'} />
+            </div>
+          )}
+
+          {/* ── OSM infra metadata ── */}
+          {isOsm && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+              <MetaCell label="TIPO"  value={object.kind.replace('_', ' ').toUpperCase()} accent="var(--color-green)" />
+              <MetaCell label="ID OSM" value={String(object.id)} accent="var(--color-muted)" />
+            </div>
+          )}
+
+          {/* ── admin boundary metadata ── */}
+          {isAdmin && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+              <MetaCell label="PCODE"      value={object.pcode} accent="var(--color-muted)" />
+              <MetaCell label="POBLACIÓN"  value={object.population > 0 ? object.population.toLocaleString() : '—'} accent="var(--color-cyan)" />
+            </div>
+          )}
+
+          {/* ── USAID declaration metadata ── */}
+          {isUsaid && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+              <MetaCell label="PAÍS"        value={object.country} accent="var(--color-text)" />
+              <MetaCell label="TIPO"        value={object.disasterType} />
+              <MetaCell label="FECHA"       value={object.declarationDate.slice(0, 10)} />
+              <MetaCell label="ESTADO"      value={object.status} accent={object.status === 'Active' ? 'var(--color-green)' : 'var(--color-muted)'} />
+              {object.fundingUsd != null && (
+                <MetaCell label="FINANCIAMIENTO" value={`$${(object.fundingUsd / 1e6).toFixed(1)}M USD`} accent="var(--color-amber)" />
+              )}
+            </div>
+          )}
+
+          {/* ── funding flow metadata ── */}
+          {isFunding && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+              <MetaCell label="ORGANIZACIÓN" value={object.organization} accent="var(--color-amber)" />
+              <MetaCell label="TOTAL USD"    value={`$${(object.totalUsd / 1e6).toFixed(2)}M`} accent="var(--color-green)" />
+            </div>
+          )}
+
           {/* ── USGS external link for earthquakes ── */}
           {isEq && (
             <a
@@ -605,17 +718,16 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
           {(isEq || isDmg) && <NewsSection keyword={keyword} eventId={eventId} />}
         </div>
 
-        {/* footer coords */}
-        <div style={{
-          padding: '0.375rem 0.75rem',
-          borderTop: '1px solid var(--color-slate)',
-          fontFamily: 'var(--font-hud)',
-          fontSize: '0.4375rem',
-          color: 'var(--color-muted)',
-          letterSpacing: '0.08em',
-        }}>
-          GeoVigil SAR · {object.lat.toFixed(5)}, {object.lng.toFixed(5)}
-        </div>
+      {/* footer coords */}
+      <div style={{
+        padding: '0.375rem 0.75rem',
+        borderTop: '1px solid var(--color-slate)',
+        fontFamily: 'var(--font-hud)',
+        fontSize: '0.4375rem',
+        color: 'var(--color-muted)',
+        letterSpacing: '0.08em',
+      }}>
+        GeoVigil SAR · {object.lat.toFixed(5)}, {object.lng.toFixed(5)}
       </div>
     </div>
   )

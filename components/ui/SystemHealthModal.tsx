@@ -212,7 +212,7 @@ export default function SystemHealthModal({ onClose, autoClose = true }: SystemH
       >
         {/* Panel */}
         <div style={{
-          width: 640,
+          width: 420,
           maxHeight: '88vh',
           backgroundColor: 'var(--color-panel)',
           border: '1px solid var(--color-slate)',
@@ -234,7 +234,7 @@ export default function SystemHealthModal({ onClose, autoClose = true }: SystemH
 
           {/* Header */}
           <div style={{
-            padding: '0.75rem 1rem 0.625rem',
+            padding: '0.5rem 0.75rem',
             borderBottom: '1px solid var(--color-slate)',
             display: 'flex',
             alignItems: 'flex-start',
@@ -320,12 +320,12 @@ export default function SystemHealthModal({ onClose, autoClose = true }: SystemH
               <div key={group}>
                 {/* Group label */}
                 <div style={{
-                  padding: '0.375rem 1rem 0.25rem',
+                  padding: '0.25rem 0.75rem 0.15rem',
                   fontSize: '0.43rem',
                   color: 'var(--color-muted)',
                   letterSpacing: '0.22em',
                   borderBottom: '1px solid rgba(26,58,74,0.5)',
-                  marginTop: '0.25rem',
+                  marginTop: '0.125rem',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
@@ -343,9 +343,9 @@ export default function SystemHealthModal({ onClose, autoClose = true }: SystemH
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      padding: '0.3rem 1rem',
-                      gap: '0.625rem',
-                      borderBottom: rowIdx < items.length - 1 ? '1px solid rgba(26,58,74,0.25)' : 'none',
+                      padding: '0.2rem 0.75rem',
+                      gap: '0.5rem',
+                      borderBottom: rowIdx < items.length - 1 ? '1px solid rgba(26,58,74,0.2)' : 'none',
                       animationDelay: `${rowIdx * 40}ms`,
                     }}
                   >

@@ -16,9 +16,7 @@ import type { FtsFlow } from '@/lib/fts'
 import MapDetailPanel from '@/components/panels/MapDetailPanel'
 import Scanlines from './overlays/Scanlines'
 import HUDCorners from './overlays/HUDCorners'
-import ViewModeToggle from './controls/ViewModeToggle'
 import VisionModeOverlay from './overlays/VisionModeOverlay'
-import VisionModeControl from './controls/VisionModeControl'
 import type { VisionMode } from './overlays/VisionModeOverlay'
 import type { EarthquakeMarker } from './Cesium3DGlobe'
 import type { DamagePoint } from '@/lib/events/ven-2406'
@@ -71,6 +69,10 @@ interface GeoVigilMapProps {
   damagePoints?: DamagePoint[]
   dateFilter?: DateRange
   currentZoneSnapshot?: ZoneSnapshot | null
+  viewMode: '2d' | '3d'
+  onViewModeChange: (m: '2d' | '3d') => void
+  visionMode: VisionMode
+  onVisionModeChange: (m: VisionMode) => void
 }
 
 function MapPlaceholder() {
@@ -95,11 +97,9 @@ function toMarker(eq: Earthquake): EarthquakeMarker {
   return { id: eq.id, magnitude: eq.magnitude, lat: eq.lat, lng: eq.lng, depth: eq.depth, place: eq.place, time: eq.time }
 }
 
-export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, onViewportChange, onZoneSnapshot, timelinePhase, timelineMs, flyTo, damagePoints = [], dateFilter, currentZoneSnapshot }: GeoVigilMapProps) {
+export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded, onViewportChange, onZoneSnapshot, timelinePhase, timelineMs, flyTo, damagePoints = [], dateFilter, currentZoneSnapshot, viewMode, onViewModeChange, visionMode, onVisionModeChange }: GeoVigilMapProps) {
   const [earthquakes, setEarthquakes]       = useState<Earthquake[]>([])
   const [lastFetch, setLastFetch]           = useState(0)
-  const [viewMode, setViewMode]             = useState<'2d' | '3d'>('3d')
-  const [visionMode, setVisionMode]         = useState<VisionMode>('CRT')
   const [selectedObject, setSelectedObject] = useState<SelectedMapObject | null>(null)
   const [flightRoute, setFlightRoute]       = useState<FlightRoute | null>(null)
   const [aircraft, setAircraft]             = useState<AircraftState[]>([])
@@ -346,20 +346,6 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
 
       {/* Vision mode overlay */}
       <VisionModeOverlay mode={visionMode} />
-
-      {/* Top-right HUD controls */}
-      <div style={{
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        zIndex: 60,
-        display: 'flex',
-        gap: 4,
-        alignItems: 'center',
-      }}>
-        <VisionModeControl mode={visionMode} onChange={setVisionMode} />
-        <ViewModeToggle mode={viewMode} onChange={setViewMode} />
-      </div>
 
       {/* Bottom-left: USGS badge + zone analyze button */}
       <div style={{

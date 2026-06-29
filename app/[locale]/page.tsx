@@ -17,7 +17,8 @@ import SavedEventsPanel from '@/components/panels/SavedEventsPanel'
 import ZoneAnalysisPanel from '@/components/panels/ZoneAnalysisPanel'
 import type { SavedEvent } from '@/lib/saved-events'
 import type { ZoneSnapshot } from '@/lib/zone-cache'
-import { getEvent } from '@/lib/events/index'
+import type { VisionMode } from '@/components/map/overlays/VisionModeOverlay'
+import { getEvent, EVENT_REGISTRY } from '@/lib/events/index'
 
 const DEFAULT_LAYERS: Record<string, boolean> = {
   epicenters:      true,
@@ -84,6 +85,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [viewportBbox, setViewportBbox] = useState<{
     minLat: number; maxLat: number; minLng: number; maxLng: number
   } | null>(null)
+  const [viewMode, setViewMode]   = useState<'2d' | '3d'>('3d')
+  const [visionMode, setVisionMode] = useState<VisionMode>('CRT')
 
   useEffect(() => {
     setHumanStats(null)
@@ -144,6 +147,23 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const handleViewportChange = useCallback((bbox: { minLat: number; maxLat: number; minLng: number; maxLng: number }) => {
     setViewportBbox(bbox)
   }, [])
+
+  // Auto-switch active event when viewport moves into a different event's region
+  useEffect(() => {
+    if (!viewportBbox) return
+    const cLat = (viewportBbox.minLat + viewportBbox.maxLat) / 2
+    const cLng = (viewportBbox.minLng + viewportBbox.maxLng) / 2
+    const pad = 8
+    for (const [id, evt] of Object.entries(EVENT_REGISTRY)) {
+      if (id === activeEventId) continue
+      const { minLat, maxLat, minLng, maxLng } = evt.bbox
+      if (cLat >= minLat - pad && cLat <= maxLat + pad && cLng >= minLng - pad && cLng <= maxLng + pad) {
+        handleEventChange(id)
+        break
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewportBbox])
 
   const event = getEvent(activeEventId)
 
@@ -224,6 +244,11 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         onSavedEventsOpen={() => setSavedEventsPanelOpen(o => !o)}
         dateFilter={dateFilter}
         onDateFilterChange={setDateFilter}
+        viewportBbox={viewportBbox}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        visionMode={visionMode}
+        onVisionModeChange={setVisionMode}
         earthquakes={liveEarthquakes}
       />
 
@@ -254,6 +279,10 @@ export default function DashboardPage({ params }: { params: { locale: string } }
             flyTo={mapTarget}
             damagePoints={event.damageAssessment ?? []}
             dateFilter={dateFilter}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            visionMode={visionMode}
+            onVisionModeChange={setVisionMode}
           />
         </div>
 

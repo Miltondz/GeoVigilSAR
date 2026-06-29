@@ -58,7 +58,19 @@ export default function ShakeMapLayer({ map, eventId: _eventId, visible }: Shake
       map.setLayoutProperty(LAYER, 'visibility', visible ? 'visible' : 'none')
     }
 
+    let raf: number
+    if (visible) {
+      const pulse = () => {
+        if (!isMapAlive(map) || !map.getLayer(LAYER)) return
+        const t = (Date.now() % 4000) / 4000
+        map.setPaintProperty(LAYER, 'circle-opacity', 0.08 + 0.12 * Math.abs(Math.sin(t * Math.PI * 2)))
+        raf = requestAnimationFrame(pulse)
+      }
+      pulse()
+    }
+
     return () => {
+      cancelAnimationFrame(raf)
       if (!isMapAlive(map)) return
       if (map.getLayer(LAYER)) map.removeLayer(LAYER)
       if (map.getSource(SOURCE)) map.removeSource(SOURCE)
