@@ -18,18 +18,27 @@ export interface VictimCount {
 
 export async function fetchGDELTNews(
   query: string,
-  { maxRecords = 25, timespanMinutes = 1440 }: { maxRecords?: number; timespanMinutes?: number } = {}
+  {
+    maxRecords = 25,
+    timespanMinutes = 1440,
+    startDateTime,
+  }: { maxRecords?: number; timespanMinutes?: number; startDateTime?: string } = {}
 ): Promise<NewsItem[]> {
-  const params = new URLSearchParams({
+  const params: Record<string, string> = {
     query,
     mode: 'artlist',
     maxrecords: maxRecords.toString(),
     format: 'json',
-    TIMESPAN: timespanMinutes.toString(),
-  })
+  }
+  if (startDateTime) {
+    params['STARTDATETIME'] = startDateTime
+    params['ENDDATETIME']   = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
+  } else {
+    params['TIMESPAN'] = timespanMinutes.toString()
+  }
 
   const res = await fetch(
-    `https://api.gdeltproject.org/api/v2/doc/doc?${params.toString()}`,
+    `https://api.gdeltproject.org/api/v2/doc/doc?${new URLSearchParams(params).toString()}`,
     { next: { revalidate: 900 }, signal: AbortSignal.timeout(10_000) }
   )
   if (!res.ok) throw new Error(`GDELT API ${res.status}`)

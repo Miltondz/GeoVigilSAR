@@ -12,14 +12,25 @@ export async function GET(req: NextRequest) {
   const limit   = parseInt(searchParams.get('limit') ?? '25', 10)
   const place   = searchParams.get('place') ?? ''  // optional location term
 
-  const event = getEvent(eventId)
-  const query = place ? `${event.gdeltQuery} "${place}"` : event.gdeltQuery
+  const event   = getEvent(eventId)
+  const eqTime  = parseInt(searchParams.get('eqTime') ?? '0', 10)
+
+  // Use the earlier of: the specific earthquake's time or the event's mainShockTime
+  const anchorMs = eqTime > 0 ? Math.min(eqTime, event.mainShockTime) : event.mainShockTime
+  const startDateTime = new Date(anchorMs)
+    .toISOString().replace(/[-:T]/g, '').slice(0, 14)
+
+  const baseQuery = event.gdeltQuery
+  // No quotes around place — allows partial/variant matches (small towns often absent otherwise)
+  const query = place ? `${baseQuery} ${place}` : baseQuery
 
   try {
-    const items = await fetchGDELTNews(query, {
-      maxRecords: limit,
-      timespanMinutes: 1440,
-    })
+    let items = await fetchGDELTNews(query, { maxRecords: limit, startDateTime })
+
+    // Fallback: place produced nothing → retry with broader base query only
+    if (items.length === 0 && place) {
+      items = await fetchGDELTNews(baseQuery, { maxRecords: limit, startDateTime })
+    }
 
     const filtered = lang ? items.filter(i => i.language === lang) : items
     const lastUpdated = Date.now()
