@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { DateRange } from '@/components/map/controls/DateFilter'
 import type { SelectedMapObject } from '@/lib/types/map-selection'
 import type { FlightRoute } from '@/lib/airports'
@@ -104,6 +104,11 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   const [flightRoute, setFlightRoute]       = useState<FlightRoute | null>(null)
   const [aircraft, setAircraft]             = useState<AircraftState[]>([])
   const [viewportBbox, setViewportBbox]     = useState<ViewportBbox | null>(null)
+  const [frozenBbox, setFrozenBbox]         = useState<ViewportBbox | null>(null)
+  const [refreshKey, setRefreshKey]         = useState(0)
+  const [isRefreshing, setIsRefreshing]     = useState(false)
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<number>(0)
+  const frozenInitRef                       = useRef(false)
   const [zoneBbox, setZoneBbox]             = useState<ViewportBbox | null>(null)
   const [airports, setAirports]             = useState<AviationAirport[]>([])
   const [weatherPts, setWeatherPts]         = useState<WeatherPoint[]>([])
@@ -115,6 +120,12 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   const [ftsFlows, setFtsFlows]             = useState<FtsFlow[]>([])
   const onViewportChangeRef                 = useCallback((bbox: ViewportBbox) => {
     setViewportBbox(bbox)
+    // Auto-freeze bbox on first map move (initial load only)
+    if (!frozenInitRef.current) {
+      frozenInitRef.current = true
+      setFrozenBbox(bbox)
+      setLastRefreshedAt(Date.now())
+    }
     onViewportChange?.(bbox)
   }, [onViewportChange])
 
@@ -124,22 +135,30 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
     setFlightRoute(null)
   }, [])
 
+  const handleRefresh = useCallback(() => {
+    if (!viewportBbox || isRefreshing) return
+    setFrozenBbox(viewportBbox)
+    setRefreshKey(k => k + 1)
+    setIsRefreshing(true)
+    setLastRefreshedAt(Date.now())
+    setTimeout(() => setIsRefreshing(false), 2000)
+  }, [viewportBbox, isRefreshing])
+
   // Fetch USGS earthquakes.
-  // Within the event bbox → always use event bbox (stable, no re-fetch on pan).
-  // Outside event bbox → use viewport bbox with 30-day rolling window (dynamic discovery).
-  // Only "dataRegion" changes trigger a re-fetch, not every small pan.
+  // Uses frozenBbox (updated only on manual Refresh) to avoid re-fetching on every pan.
+  // Within event bbox → use event bbox; outside → use frozenBbox for 30-day rolling window.
   const [dataRegion, setDataRegion] = useState<'event' | ViewportBbox>('event')
   useEffect(() => {
-    if (!viewportBbox) return
+    if (!frozenBbox) return
     const ev = getEvent(eventId).bbox
-    const centerLat = (viewportBbox.minLat + viewportBbox.maxLat) / 2
-    const centerLng = (viewportBbox.minLng + viewportBbox.maxLng) / 2
+    const centerLat = (frozenBbox.minLat + frozenBbox.maxLat) / 2
+    const centerLng = (frozenBbox.minLng + frozenBbox.maxLng) / 2
     const insideEvent = (
       centerLat >= ev.minLat && centerLat <= ev.maxLat &&
       centerLng >= ev.minLng && centerLng <= ev.maxLng
     )
-    setDataRegion(insideEvent ? 'event' : viewportBbox)
-  }, [eventId, viewportBbox])
+    setDataRegion(insideEvent ? 'event' : frozenBbox)
+  }, [eventId, frozenBbox])
 
   useEffect(() => {
     const load = async () => {
@@ -165,7 +184,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
     load()
     const id = setInterval(load, 60000)
     return () => clearInterval(id)
-  }, [eventId, onEarthquakesLoaded, dateFilter, dataRegion])
+  }, [eventId, onEarthquakesLoaded, dateFilter, dataRegion, refreshKey])
 
   // Fetch + poll air traffic (60s — stays within OpenSky anon quota)
   useEffect(() => {
@@ -181,7 +200,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
     load()
     const id = setInterval(load, 60_000)
     return () => clearInterval(id)
-  }, [activeLayers.airTraffic])
+  }, [activeLayers.airTraffic, refreshKey])
 
   // Fetch flight route when aircraft is selected
   useEffect(() => {
@@ -212,18 +231,18 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLayers.airports])
 
-  // Weather — re-fetch when layer toggled or viewport center changes
+  // Weather — re-fetch on layer toggle or manual refresh (frozenBbox)
   useEffect(() => {
     if (!activeLayers.weather) { setWeatherPts([]); return }
-    const center = viewportBbox
-      ? { lat: (viewportBbox.minLat + viewportBbox.maxLat) / 2, lng: (viewportBbox.minLng + viewportBbox.maxLng) / 2 }
+    const center = frozenBbox
+      ? { lat: (frozenBbox.minLat + frozenBbox.maxLat) / 2, lng: (frozenBbox.minLng + frozenBbox.maxLng) / 2 }
       : getEvent(eventId).epicenter
     fetch(`/api/weather?lat=${center.lat.toFixed(4)}&lng=${center.lng.toFixed(4)}&grid=1`)
       .then(r => r.json())
       .then((d: { points: WeatherPoint[] }) => setWeatherPts(d.points ?? []))
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLayers.weather, viewportBbox, eventId])
+  }, [activeLayers.weather, frozenBbox, eventId, refreshKey])
 
   // Buoys — load once when layer activated
   useEffect(() => {
@@ -236,11 +255,11 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLayers.buoys])
 
-  // OSM infrastructure — re-fetch on viewport change
+  // OSM infrastructure — re-fetch on layer toggle or manual refresh (frozenBbox)
   useEffect(() => {
     if (!activeLayers.osmInfra) { setOsmFeatures([]); setOsmRoads([]); return }
-    const bbox = viewportBbox
-      ? `${viewportBbox.minLng.toFixed(4)},${viewportBbox.minLat.toFixed(4)},${viewportBbox.maxLng.toFixed(4)},${viewportBbox.maxLat.toFixed(4)}`
+    const bbox = frozenBbox
+      ? `${frozenBbox.minLng.toFixed(4)},${frozenBbox.minLat.toFixed(4)},${frozenBbox.maxLng.toFixed(4)},${frozenBbox.maxLat.toFixed(4)}`
       : '-67.5,10.0,-66.0,11.5'
     fetch(`/api/osm-infra?bbox=${bbox}&roads=1`)
       .then(r => r.json())
@@ -250,7 +269,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
       })
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLayers.osmInfra, viewportBbox])
+  }, [activeLayers.osmInfra, frozenBbox, refreshKey])
 
   // Admin boundaries + population — load once
   useEffect(() => {
@@ -381,7 +400,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
       {/* Vision mode overlay */}
       <VisionModeOverlay mode={visionMode} />
 
-      {/* Bottom-left: USGS badge + zone analyze button */}
+      {/* Bottom-left: USGS badge + refresh + zone analyze */}
       <div style={{
         position: 'absolute',
         bottom: 8,
@@ -404,6 +423,39 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
             </span>
           </div>
         )}
+
+        {/* Manual data refresh button */}
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing || !viewportBbox}
+          title={lastRefreshedAt
+            ? `Última actualización: ${new Date(lastRefreshedAt).toISOString().slice(11, 19)} UTC`
+            : 'Actualizar datos para la zona en pantalla'}
+          style={{
+            fontFamily:    'var(--font-hud)',
+            fontSize:      '0.5625rem',
+            letterSpacing: '0.14em',
+            color:         isRefreshing ? 'var(--color-green)' : 'var(--color-amber)',
+            background:    'rgba(0,10,15,0.85)',
+            border:        `1px solid ${isRefreshing ? 'var(--color-green)' : 'var(--color-amber)'}`,
+            padding:       '0.25rem 0.625rem',
+            cursor:        isRefreshing || !viewportBbox ? 'default' : 'pointer',
+            display:       'flex',
+            alignItems:    'center',
+            gap:           '0.35rem',
+            opacity:       isRefreshing || !viewportBbox ? 0.6 : 1,
+            backdropFilter: 'blur(4px)',
+            pointerEvents: 'all',
+            transition:    'all 0.15s',
+          }}
+        >
+          <span style={isRefreshing ? { animation: 'spin 0.8s linear infinite', display: 'inline-block' } : undefined}>
+            ↻
+          </span>
+          {isRefreshing ? 'ACTUALIZANDO...' : 'ACTUALIZAR ZONA'}
+          <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+        </button>
+
         <ZoneAnalyzeButton
           viewportBbox={viewportBbox}
           onSnapshot={snap => {
