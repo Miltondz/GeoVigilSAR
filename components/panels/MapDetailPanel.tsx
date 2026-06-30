@@ -59,23 +59,17 @@ function placeKeyword(place: string) {
 
 // ── Data hooks ────────────────────────────────────────────────────────────────
 
-function usePlaceNews(keyword: string, eventId: string, eqTimeMs?: number) {
+function usePlaceNews(keyword: string, eventId: string) {
   const [items, setItems] = useState<NewsItem[]>([])
   useEffect(() => {
     if (!keyword) return
     setItems([])
-    const params = new URLSearchParams({
-      eventId,
-      place: keyword,
-      limit: '8',
-    })
-    // Pass earthquake timestamp so the route can compute the right date range
-    if (eqTimeMs) params.set('eqTime', String(eqTimeMs))
+    const params = new URLSearchParams({ eventId, place: keyword, limit: '8' })
     fetch(`/api/news?${params.toString()}`)
       .then(r => r.json())
       .then((d: { items?: NewsItem[] }) => setItems(d.items ?? []))
       .catch(() => {})
-  }, [keyword, eventId, eqTimeMs])
+  }, [keyword, eventId])
   return items
 }
 
@@ -134,8 +128,8 @@ function MetaCell({ label, value, accent }: { label: string; value: string; acce
   )
 }
 
-function NewsSection({ keyword, eventId, eqTimeMs }: { keyword: string; eventId: string; eqTimeMs?: number }) {
-  const items = usePlaceNews(keyword, eventId, eqTimeMs)
+function NewsSection({ keyword, eventId }: { keyword: string; eventId: string }) {
+  const items = usePlaceNews(keyword, eventId)
   return (
     <div style={{ borderTop: '1px solid var(--color-slate)', paddingTop: '0.625rem' }}>
       <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.4375rem', color: 'var(--color-muted)', letterSpacing: '0.15em', marginBottom: '0.5rem' }}>
@@ -755,13 +749,7 @@ export default function MapDetailPanel({ object, onClose, eventId, flightRoute }
           )}
 
           {/* ── news (not shown for aircraft/satellite — no place context) ── */}
-          {(isEq || isDmg) && (
-            <NewsSection
-              keyword={keyword}
-              eventId={eventId}
-              eqTimeMs={isEq ? object.time : undefined}
-            />
-          )}
+          {(isEq || isDmg) && <NewsSection keyword={keyword} eventId={eventId} />}
         </div>
 
       {/* footer coords */}

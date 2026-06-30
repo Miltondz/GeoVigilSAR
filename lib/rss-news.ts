@@ -60,13 +60,39 @@ export async function fetchAlJazeeraNews(keywords: string[]): Promise<NewsItem[]
   return fetchRSS('https://www.aljazeera.com/xml/rss/all.xml', 'Al Jazeera', keywords)
 }
 
+// EMSC's old RSS feed (emsc-csem.org/service/rss/rss.php) is dead (404).
+// Use the live seismicportal.eu FDSN JSON API instead — same data, same
+// source already used by lib/emsc.ts for the map layer — and synthesize
+// NewsItem-shaped entries from significant recent earthquakes worldwide.
 export async function fetchEMSCQuakeNews(): Promise<NewsItem[]> {
-  // EMSC felt-reports + recent significant quakes RSS
-  return fetchRSS(
-    'https://www.emsc-csem.org/service/rss/rss.php?filter=LAST_24H_Mge4',
-    'EMSC',
-    []  // no keyword filter — all results are seismic
-  )
+  try {
+    const qs = new URLSearchParams({
+      format: 'json', minmag: '4.0', limit: '15', orderby: 'time',
+    })
+    const res = await fetch(
+      `https://www.seismicportal.eu/fdsnws/event/1/query?${qs.toString()}`,
+      { signal: AbortSignal.timeout(8_000) }
+    )
+    if (!res.ok) return []
+    const data = await res.json() as {
+      features?: { properties?: { mag?: number; time?: string; flynn_region?: string; unid?: string } }[]
+    }
+    return (data.features ?? []).map(f => {
+      const p = f.properties ?? {}
+      const mag = p.mag ?? 0
+      const region = p.flynn_region ?? 'región desconocida'
+      const ts = p.time ? new Date(p.time).getTime() : Date.now()
+      return {
+        title: `M${mag.toFixed(1)} — ${region}`,
+        url: `https://www.emsc-csem.org/Earthquake/?unid=${p.unid ?? ''}`,
+        source: 'EMSC',
+        publishedAt: ts,
+        language: 'en' as const,
+      }
+    })
+  } catch {
+    return []
+  }
 }
 
 export async function fetchReliefWebRSS(country: string): Promise<NewsItem[]> {
