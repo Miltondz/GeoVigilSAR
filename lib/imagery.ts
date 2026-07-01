@@ -1,9 +1,11 @@
+import { searchProducts } from '@/lib/copernicus'
+
 export type ImagePhase = 'before' | 'after' | 'context'
-export type ImageSource = 'mapillary' | 'wikimedia' | 'nasa-gibs'
+export type ImageSource = 'mapillary' | 'wikimedia' | 'sentinel2' | 'esri'
 
 export interface ZoneImage {
   id:           string
-  url:          string       // display URL (may be a NASA GIBS WMS URL)
+  url:          string       // display URL
   thumbnailUrl?: string
   capturedAt?:  number       // ms UTC
   source:       ImageSource
@@ -13,70 +15,75 @@ export interface ZoneImage {
   phase:        ImagePhase
 }
 
-// ── NASA GIBS (no API key, URL-based) ─────────────────────────────────────────
+// ── ESRI World Imagery (no API key, free public tile export service — already
+// used as the app's satellite basemap). No historical dates, but sub-meter
+// resolution in well-covered areas — a genuinely close "now" reference shot
+// for locations where Mapillary/Sentinel-2 have nothing usable.
 
-export function nasaGibsUrl(
+export function esriWorldImageryUrl(
   minLat: number, minLng: number, maxLat: number, maxLng: number,
-  date: string,   // YYYY-MM-DD
-  layer = 'VIIRS_SNPP_CorrectedReflectance_TrueColor'
+  size = 1024
 ): string {
-  const layers = `${layer},Coastlines_15m`
-  const bbox   = `${minLat},${minLng},${maxLat},${maxLng}`
-  const base   = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi'
-  return `${base}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=${encodeURIComponent(layers)}&CRS=EPSG:4326&BBOX=${bbox}&WIDTH=800&HEIGHT=400&FORMAT=image%2Fjpeg&TIME=${date}`
+  const bbox = `${minLng},${minLat},${maxLng},${maxLat}`
+  const base = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export'
+  return `${base}?bbox=${bbox}&bboxSR=4326&size=${size},${size}&imageSR=4326&format=jpg&f=image`
 }
 
-export function buildSatelliteImages(
-  minLat: number, minLng: number, maxLat: number, maxLng: number,
-  eventTime?: number   // ms UTC — if known, use day before/after
-): ZoneImage[] {
-  const today      = new Date()
-  const todayStr   = today.toISOString().slice(0, 10)
-  const yesterday  = new Date(today.getTime() - 86400000).toISOString().slice(0, 10)
-
-  let beforeDates: string[]
-  let afterDates:  string[]
-
-  if (eventTime) {
-    const ev   = new Date(eventTime)
-    const day0 = ev.toISOString().slice(0, 10)
-    const dm1  = new Date(eventTime - 86400000).toISOString().slice(0, 10)  // day before
-    const dp1  = new Date(eventTime + 86400000).toISOString().slice(0, 10)  // +1
-    const dp3  = new Date(eventTime + 3 * 86400000).toISOString().slice(0, 10)
-    beforeDates = [dm1]
-    afterDates  = [day0, dp1, dp3, todayStr].filter((d, i, a) => a.indexOf(d) === i)
-  } else {
-    const m30 = new Date(today.getTime() - 30 * 86400000).toISOString().slice(0, 10)
-    const m15 = new Date(today.getTime() - 15 * 86400000).toISOString().slice(0, 10)
-    beforeDates = [m30, m15]
-    afterDates  = [yesterday, todayStr]
+export function buildCloseAerialImage(lat: number, lng: number): ZoneImage {
+  const SPAN = 0.01 // degrees (~1.1km) — tight enough for building-scale detail where source resolution allows
+  return {
+    id:      `esri-${lat.toFixed(4)}-${lng.toFixed(4)}`,
+    url:     esriWorldImageryUrl(lat - SPAN, lng - SPAN, lat + SPAN, lng + SPAN),
+    source:  'esri',
+    caption: 'ESRI World Imagery — vista actual',
+    phase:   'context',
   }
+}
 
-  const images: ZoneImage[] = []
+// ── Sentinel-2 (CDSE, ~10m resolution — a real close aerial view vs. GIBS'
+// wide continental swath). Uses the same search already powering the
+// InSAR/optical pre-post layers, generalized to any bbox, not just VEN-2406.
 
-  for (const d of beforeDates) {
-    images.push({
-      id:        `nasa-gibs-before-${d}`,
-      url:       nasaGibsUrl(minLat, minLng, maxLat, maxLng, d),
-      capturedAt: new Date(d).getTime(),
-      source:    'nasa-gibs',
-      phase:     'before',
-      caption:   `Satélite — ${d}`,
-    })
-  }
+export async function fetchSentinelImages(
+  bbox: [number, number, number, number], // [west, south, east, north] — keep this tight/local
+  eventTime?: number
+): Promise<ZoneImage[]> {
+  const now = Date.now()
+  const beforeEnd   = eventTime ?? now - 30 * 86400000
+  const beforeStart = beforeEnd - 60 * 86400000
+  const afterStart  = eventTime ?? now - 30 * 86400000
 
-  for (const d of afterDates) {
-    images.push({
-      id:        `nasa-gibs-after-${d}`,
-      url:       nasaGibsUrl(minLat, minLng, maxLat, maxLng, d),
-      capturedAt: new Date(d).getTime(),
-      source:    'nasa-gibs',
-      phase:     'after',
-      caption:   `Satélite — ${d}`,
-    })
-  }
+  // Fetch more candidates than we need, then keep the clearest — a recent but
+  // 90%-cloud scene is useless as an aerial view even though it's the "latest".
+  const [beforeCandidates, afterCandidates] = await Promise.all([
+    searchProducts({
+      collection: 'SENTINEL-2', bbox, productType: 'S2MSI2A', limit: 8,
+      startDate: new Date(beforeStart).toISOString(),
+      endDate:   new Date(beforeEnd).toISOString(),
+    }),
+    searchProducts({
+      collection: 'SENTINEL-2', bbox, productType: 'S2MSI2A', limit: 8,
+      startDate: new Date(afterStart).toISOString(),
+      endDate:   new Date(now).toISOString(),
+    }),
+  ])
 
-  return images
+  const byClearest = (a: { cloudCover?: number }, b: { cloudCover?: number }) =>
+    (a.cloudCover ?? 100) - (b.cloudCover ?? 100)
+
+  const before = [...beforeCandidates].sort(byClearest).slice(0, 2)
+  const after  = [...afterCandidates].sort(byClearest).slice(0, 3)
+
+  const toImage = (phase: ImagePhase) => (p: { id: string; startDate: string; quicklookUrl: string; cloudCover?: number }): ZoneImage => ({
+    id:         `sentinel2-${p.id}`,
+    url:        p.quicklookUrl,
+    capturedAt: new Date(p.startDate).getTime(),
+    source:     'sentinel2',
+    caption:    `Sentinel-2 — ${p.startDate.slice(0, 10)}${p.cloudCover != null ? ` · ${Math.round(p.cloudCover)}% nubes` : ''}`,
+    phase,
+  })
+
+  return [...before.map(toImage('before')), ...after.map(toImage('after'))]
 }
 
 // ── Mapillary (server-side, uses MAPILLARY_CLIENT_TOKEN) ─────────────────────

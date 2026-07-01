@@ -17,15 +17,22 @@ function placeholder(): NextResponse {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const productId = req.nextUrl.searchParams.get('productId')
-  if (!productId) return placeholder()
+  const productId   = req.nextUrl.searchParams.get('productId')
+  const productName = req.nextUrl.searchParams.get('name') // e.g. "S2B_MSIL2A_..._....SAFE"
+  if (!productId || !productName) return placeholder()
 
   const token = await getCdseToken()
   if (!token) return placeholder()
 
   try {
+    // CDSE nests the quicklook one level inside the product's own .SAFE folder
+    // node, named "<product>-ql.jpg" — not a flat "quicklook.png" at the root.
+    // File downloads ($value) must go through the download subdomain, not
+    // catalogue (catalogue is metadata/search-only and 401s on $value).
+    const quicklookName = productName.replace(/\.SAFE$/, '') + '-ql.jpg'
     const url =
-      `https://catalogue.dataspace.copernicus.eu/odata/v1/Products(${productId})/Nodes('quicklook.png')/$value`
+      `https://download.dataspace.copernicus.eu/odata/v1/Products(${productId})` +
+      `/Nodes(${encodeURIComponent(productName)})/Nodes(${encodeURIComponent(quicklookName)})/$value`
 
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
@@ -34,12 +41,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     if (!res.ok) return placeholder()
 
-    const contentType = res.headers.get('Content-Type') ?? 'image/jpeg'
+    // The $value endpoint reports application/zip generically regardless of
+    // the actual file type — trust the .jpg extension we asked for instead.
     const body = await res.arrayBuffer()
     return new NextResponse(body, {
       status: 200,
       headers: {
-        'Content-Type': contentType,
+        'Content-Type': 'image/jpeg',
         'Cache-Control': 'public, max-age=3600',
       },
     })

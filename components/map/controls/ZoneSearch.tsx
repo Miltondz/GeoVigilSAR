@@ -7,6 +7,7 @@ interface SearchResult {
   lng: number
   name: string
   type: string
+  bbox?: [number, number, number, number]
 }
 
 interface ZoneSearchProps {
@@ -48,7 +49,7 @@ export default function ZoneSearch({ onResult, placeholder = 'BUSCAR ZONA...' }:
   }, [query])
 
   const handleSelect = (r: SearchResult) => {
-    onResult({ lat: r.lat, lng: r.lng, name: r.name })
+    onResult({ lat: r.lat, lng: r.lng, name: r.name, bbox: r.bbox })
     setQuery('')
     setResults([])
     setOpen(false)

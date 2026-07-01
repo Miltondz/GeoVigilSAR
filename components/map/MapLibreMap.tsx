@@ -66,6 +66,7 @@ interface FlyToTarget {
   lat: number
   lng: number
   name?: string
+  bbox?: [number, number, number, number]
 }
 
 interface ViewportBbox {
@@ -98,6 +99,7 @@ interface MapLibreMapProps {
   ftsFlows?: FtsFlow[]
   mapActive?: boolean
   zoneBbox?: ViewportBbox | null
+  satellitePasses?: SatellitePass[]
 }
 
 // Protomaps free tile style — no key required
@@ -133,6 +135,7 @@ export default function MapLibreMap({
   ftsFlows = [],
   mapActive = true,
   zoneBbox = null,
+  satellitePasses = [],
 }: MapLibreMapProps) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const mapRef        = useRef<maplibregl.Map | null>(null)
@@ -148,9 +151,8 @@ export default function MapLibreMap({
   const [comparatorOpen, setComparatorOpen] = useState(false)
   const [selectedNode, setSelectedNode] = useState<DamagePoint | undefined>()
   const [vulnerabilityScores, setVulnerabilityScores] = useState<VulnerabilityScore[]>([])
-  // aircraft comes from parent GeoVigilMap (lifted state — no internal fetch)
+  // aircraft + satellitePasses come from parent GeoVigilMap (lifted state — no internal fetch)
   const aircraft = aircraftProp
-  const [satellitePasses, setSatellitePasses] = useState<SatellitePass[]>([])
   const [sarPostProducts, setSarPostProducts] = useState<CopernicusProduct[]>([])
   const [opticalPreProducts, setOpticalPreProducts] = useState<CopernicusProduct[]>([])
   const [opticalPostProducts, setOpticalPostProducts] = useState<CopernicusProduct[]>([])
@@ -315,25 +317,6 @@ export default function MapLibreMap({
     void load()
   }, [activeLayers.vulnerability, eventId, vulnerabilityScores.length])
 
-  // Fetch satellite passes once when layer is toggled on (TLE valid 12h)
-  useEffect(() => {
-    if (!activeLayers.satellites) return
-    if (satellitePasses.length > 0) return
-
-    const load = async () => {
-      try {
-        const res = await fetch(`/api/satellites?eventId=${eventId}`)
-        if (!res.ok) return
-        const data = (await res.json()) as { satellites: SatellitePass[] }
-        setSatellitePasses(data.satellites ?? [])
-      } catch {
-        // Celestrak unavailable — layer renders empty
-      }
-    }
-
-    void load()
-  }, [activeLayers.satellites, eventId, satellitePasses.length])
-
   // Aircraft data is now lifted to GeoVigilMap — no internal fetch needed
 
   // Fetch SAR post-event products when the layer is activated
@@ -422,14 +405,24 @@ export default function MapLibreMap({
     void load()
   }, [activeLayers.insar, eventId])
 
-  // Fly to target when supplied from parent (ZoneSearch)
+  // Fly to target when supplied from parent (ZoneSearch) — fit the place's
+  // actual extent (bbox) when available so a country search doesn't end up
+  // zoomed to a city block; falls back to a fixed zoom for point results.
   useEffect(() => {
     if (!flyTo || !mapRef.current) return
-    mapRef.current.flyTo({
-      center: [flyTo.lng, flyTo.lat],
-      zoom: 12,
-      duration: 1500,
-    })
+    if (flyTo.bbox) {
+      const [minLat, maxLat, minLng, maxLng] = flyTo.bbox
+      mapRef.current.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
+        padding: 40,
+        duration: 1500,
+      })
+    } else {
+      mapRef.current.flyTo({
+        center: [flyTo.lng, flyTo.lat],
+        zoom: 12,
+        duration: 1500,
+      })
+    }
   }, [flyTo])
 
   // Zone bbox highlight — drawn when user clicks "Analizar Zona"

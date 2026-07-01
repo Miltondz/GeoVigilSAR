@@ -13,6 +13,7 @@ import type { OsmFeature, OsmRoad } from '@/lib/overpass'
 import type { AdminBoundary } from '@/lib/hdx'
 import type { UsaidDeclaration } from '@/lib/usaid'
 import type { FtsFlow } from '@/lib/fts'
+import type { SatellitePass } from '@/lib/orbits'
 import MapDetailPanel from '@/components/panels/MapDetailPanel'
 import Scanlines from './overlays/Scanlines'
 import HUDCorners from './overlays/HUDCorners'
@@ -51,6 +52,7 @@ interface FlyToTarget {
   lat: number
   lng: number
   name?: string
+  bbox?: [number, number, number, number]
 }
 
 interface ViewportBbox {
@@ -118,6 +120,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   const [boundaries, setBoundaries]         = useState<(AdminBoundary & { population: number | null })[]>([])
   const [usaidDecl, setUsaidDecl]           = useState<UsaidDeclaration[]>([])
   const [ftsFlows, setFtsFlows]             = useState<FtsFlow[]>([])
+  const [satellitePasses, setSatellitePasses] = useState<SatellitePass[]>([])
   const onViewportChangeRef                 = useCallback((bbox: ViewportBbox) => {
     setViewportBbox(bbox)
     // Auto-freeze bbox on first map move (initial load only)
@@ -313,6 +316,18 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeLayers.funding])
 
+  // Satellites — load once when layer activated (TLE valid 12h).
+  // Shared by both MapLibreMap and Cesium3DGlobe — fetched here once instead of in each.
+  useEffect(() => {
+    if (!activeLayers.satellites) return
+    if (satellitePasses.length > 0) return
+    fetch(`/api/satellites?eventId=${eventId}`)
+      .then(r => r.json())
+      .then((d: { satellites?: SatellitePass[] }) => setSatellitePasses(d.satellites ?? []))
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayers.satellites, eventId])
+
   // Clear zone bbox when snapshot is cleared from parent
   useEffect(() => {
     if (!currentZoneSnapshot) setZoneBbox(null)
@@ -361,6 +376,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
             usaidDeclarations={usaidDecl}
             ftsFlows={ftsFlows}
             zoneBbox={zoneBbox}
+            satellitePasses={satellitePasses}
           />
         </div>
 
@@ -386,6 +402,7 @@ export default function GeoVigilMap({ activeLayers, eventId, onEarthquakesLoaded
           boundaries={boundaries}
           usaidDeclarations={usaidDecl}
           ftsFlows={ftsFlows}
+          satellitePasses={satellitePasses}
         />
       </div>
 

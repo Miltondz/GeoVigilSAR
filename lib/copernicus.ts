@@ -55,6 +55,7 @@ export interface CopernicusProduct {
   productType: string     // GRD, S2MSI2A, etc.
   quicklookUrl: string    // /api/image-proxy?productId={id}
   bbox: [number, number, number, number]  // [west, south, east, north]
+  cloudCover?: number      // percent, Sentinel-2 only
 }
 
 // ─── Internal OData response types ───────────────────────────────────────────
@@ -64,6 +65,7 @@ interface ODataProduct {
   ContentDate: { Start: string }
   GeoFootprint: Polygon
   S3Path?: string
+  Attributes?: { Name: string; Value: number | string }[]
 }
 
 interface ODataResponse {
@@ -116,6 +118,7 @@ export async function searchProducts(params: {
 
   const url = new URL('https://catalogue.dataspace.copernicus.eu/odata/v1/Products')
   url.searchParams.set('$filter', filters.join(' and '))
+  url.searchParams.set('$expand', 'Attributes')
   url.searchParams.set('$top', String(limit))
   url.searchParams.set('$orderby', 'ContentDate/Start desc')
 
@@ -127,16 +130,20 @@ export async function searchProducts(params: {
     if (!res.ok) return []
 
     const data = (await res.json()) as ODataResponse
-    return (data.value ?? []).map(p => ({
-      id: p.Id,
-      name: p.Name,
-      startDate: p.ContentDate.Start,
-      footprint: p.GeoFootprint,
-      collection,
-      productType: productType ?? '',
-      quicklookUrl: `/api/image-proxy?productId=${p.Id}`,
-      bbox: footprintBbox(p.GeoFootprint),
-    }))
+    return (data.value ?? []).map(p => {
+      const cloudAttr = p.Attributes?.find(a => a.Name === 'cloudCover')
+      return {
+        id: p.Id,
+        name: p.Name,
+        startDate: p.ContentDate.Start,
+        footprint: p.GeoFootprint,
+        collection,
+        productType: productType ?? '',
+        quicklookUrl: `/api/image-proxy?productId=${p.Id}&name=${encodeURIComponent(p.Name)}`,
+        bbox: footprintBbox(p.GeoFootprint),
+        cloudCover: cloudAttr ? Number(cloudAttr.Value) : undefined,
+      }
+    })
   } catch {
     return []
   }

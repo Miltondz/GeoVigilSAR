@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
         }
         return items
       }),
-    fetchMultiSourceNews(countryName, rssKeywords),
+    fetchMultiSourceNews(countryName, rssKeywords, [event.bbox.minLat, event.bbox.maxLat, event.bbox.minLng, event.bbox.maxLng]),
   ])
 
   const gdeltItems = gdeltResult.status === 'fulfilled' ? gdeltResult.value : []

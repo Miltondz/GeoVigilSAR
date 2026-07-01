@@ -35,6 +35,7 @@ interface StatsPanelProps {
   dataStream: StreamItem[]
   pinnedEvents?: SavedEvent[]
   isKnownEvent?: boolean
+  hospitalCounts?: HospitalCounts | null
   onHospitalDetailOpen?: () => void
   zoneSnapshot?: ZoneSnapshot | null
   onClearZone?: () => void
@@ -64,6 +65,7 @@ export default function StatsPanel({
   dataStream,
   pinnedEvents = [],
   isKnownEvent = true,
+  hospitalCounts = null,
   onHospitalDetailOpen,
   zoneSnapshot,
   onClearZone,
@@ -71,26 +73,11 @@ export default function StatsPanel({
 }: StatsPanelProps) {
   const streamRef   = useRef<HTMLDivElement>(null)
   const [hospitalOpen, setHospitalOpen]     = useState(false)
-  const [hospitalCounts, setHospitalCounts] = useState<HospitalCounts | null>(null)
   const [zoneOpen, setZoneOpen]             = useState(true)
 
   useEffect(() => {
     if (streamRef.current) streamRef.current.scrollTop = 0
   }, [dataStream])
-
-  useEffect(() => {
-    fetch(`/api/hospitals?eventId=${eventId}`)
-      .then(r => r.json())
-      .then((data: { status: 'GREEN' | 'AMBER' | 'RED' }[]) => {
-        setHospitalCounts({
-          total: data.length,
-          green: data.filter(h => h.status === 'GREEN').length,
-          amber: data.filter(h => h.status === 'AMBER').length,
-          red:   data.filter(h => h.status === 'RED').length,
-        })
-      })
-      .catch(() => {})
-  }, [eventId])
 
   return (
     <div style={{

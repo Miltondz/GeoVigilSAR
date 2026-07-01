@@ -26,19 +26,25 @@ const STATUS_LABEL: Record<HealthResult['status'], string> = {
   timeout: 'TIMEOUT',
 }
 
-function LatencyText({ ms }: { ms: number }) {
+const STATIC_SOURCES = [
+  { name: 'EMSR884 AOI GeoJSON', note: 'public/geojson/' },
+  { name: 'Fault Lines DB (USGS)', note: 'static vector' },
+  { name: 'Hospital Dataset (OSM)', note: 'static JSON' },
+]
+
+function LatencyText({ ms, fontSize = '0.5rem' }: { ms: number; fontSize?: string }) {
   const text = ms > 999 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`
   const color = ms > 4000 ? '#FF4444' : ms > 2000 ? '#FFB800' : '#607080'
-  return <span style={{ color, fontFamily: "'Share Tech Mono', monospace", fontSize: '0.5rem' }}>{text}</span>
+  return <span style={{ color, fontFamily: "'Share Tech Mono', monospace", fontSize }}>{text}</span>
 }
 
-function StatusDot({ status }: { status: HealthResult['status'] }) {
+function StatusDot({ status, size = 7 }: { status: HealthResult['status']; size?: number }) {
   const color = STATUS_COLOR[status]
   const pulse = status === 'ok' ? 'sysHealthPulse 3s ease-in-out infinite' : 'none'
   return (
     <div style={{
-      width: 7,
-      height: 7,
+      width: size,
+      height: size,
       borderRadius: '50%',
       backgroundColor: color,
       flexShrink: 0,
@@ -48,26 +54,12 @@ function StatusDot({ status }: { status: HealthResult['status'] }) {
   )
 }
 
-interface SystemHealthModalProps {
-  onClose: () => void
-  autoClose?: boolean
-}
+// ── Shared fetch/stream logic ────────────────────────────────────────────────
 
-const EXPECTED_TOTAL = 16
-
-export default function SystemHealthModal({ onClose, autoClose = true }: SystemHealthModalProps) {
+function useHealthChecks() {
   const [results, setResults] = useState<HealthResult[]>([])
   const [loading, setLoading] = useState(true)
-  const [countdown, setCountdown] = useState<number | null>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const clearCountdown = () => {
-    if (countdownRef.current) {
-      clearInterval(countdownRef.current)
-      countdownRef.current = null
-    }
-  }
 
   const runChecks = useCallback(async () => {
     abortRef.current?.abort()
@@ -76,14 +68,9 @@ export default function SystemHealthModal({ onClose, autoClose = true }: SystemH
 
     setLoading(true)
     setResults([])
-    setCountdown(null)
-    clearCountdown()
 
     try {
-      const res = await fetch('/api/health', {
-        cache: 'no-store',
-        signal: abort.signal,
-      })
+      const res = await fetch('/api/health', { cache: 'no-store', signal: abort.signal })
       if (!res.body) return
 
       const reader = res.body.getReader()
@@ -123,15 +110,38 @@ export default function SystemHealthModal({ onClose, autoClose = true }: SystemH
 
   useEffect(() => {
     void runChecks()
-    return () => {
-      abortRef.current?.abort()
-      clearCountdown()
-    }
+    return () => abortRef.current?.abort()
   }, [runChecks])
 
-  // Auto-dismiss after checks complete
+  return { results, loading, runChecks }
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+interface SystemHealthModalProps {
+  onClose: () => void
+  autoClose?: boolean
+  /** 'modal' = centered boot-sequence dialog (auto-closes). 'panel' = docked sidebar, toggled from header. */
+  variant?: 'modal' | 'panel'
+}
+
+const EXPECTED_TOTAL = 16
+
+export default function SystemHealthModal({ onClose, autoClose = true, variant = 'modal' }: SystemHealthModalProps) {
+  const { results, loading, runChecks } = useHealthChecks()
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const clearCountdown = () => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current)
+      countdownRef.current = null
+    }
+  }
+
+  // Auto-dismiss after checks complete (modal variant only)
   useEffect(() => {
-    if (loading || !autoClose) return
+    if (variant !== 'modal' || loading || !autoClose) return
     setCountdown(8)
     countdownRef.current = setInterval(() => {
       setCountdown(prev => {
@@ -144,18 +154,180 @@ export default function SystemHealthModal({ onClose, autoClose = true }: SystemH
       })
     }, 1000)
     return clearCountdown
-  }, [loading, autoClose, onClose])
+  }, [variant, loading, autoClose, onClose])
 
-  // Group results preserving arrival order within each group
   const groups = results.reduce<Record<string, HealthResult[]>>((acc, r) => {
     if (!acc[r.group]) acc[r.group] = []
     acc[r.group].push(r)
     return acc
   }, {})
 
-  const okCount      = results.filter(r => r.status === 'ok').length
-  const failCount    = results.filter(r => r.status === 'error' || r.status === 'timeout').length
-  const warnCount    = results.filter(r => r.status === 'warn').length
+  const okCount    = results.filter(r => r.status === 'ok').length
+  const failCount  = results.filter(r => r.status === 'error' || r.status === 'timeout').length
+  const warnCount  = results.filter(r => r.status === 'warn').length
+
+  if (variant === 'panel') {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 48,
+        right: 0,
+        width: 300,
+        height: 'calc(100vh - 88px)',
+        backgroundColor: 'var(--color-panel)',
+        borderLeft: '1px solid var(--color-slate)',
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 90,
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0.5rem 0.75rem',
+          borderBottom: '1px solid var(--color-slate)',
+          flexShrink: 0,
+        }}>
+          <div>
+            <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: '0.5rem', color: 'var(--color-cyan)', letterSpacing: '0.15em' }}>
+              FUENTES DE DATOS
+            </div>
+            {results.length > 0 && (
+              <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: '0.4375rem', color: 'var(--color-muted)', marginTop: '0.125rem' }}>
+                <span style={{ color: '#00FF88' }}>{okCount} ONLINE</span>
+                {warnCount > 0 && <span style={{ color: '#FFB800' }}> · {warnCount} AVISO</span>}
+                {failCount > 0 && <span style={{ color: '#FF4444' }}> · {failCount} ERROR</span>}
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              onClick={() => void runChecks()}
+              disabled={loading}
+              style={{
+                background: 'none',
+                border: '1px solid var(--color-slate)',
+                color: loading ? 'var(--color-muted)' : 'var(--color-cyan)',
+                cursor: loading ? 'default' : 'pointer',
+                fontFamily: "'Share Tech Mono', monospace",
+                fontSize: '0.4375rem',
+                padding: '0.15rem 0.4rem',
+                letterSpacing: '0.1em',
+              }}
+            >
+              {loading ? '···' : '↺ REINTENTAR'}
+            </button>
+            <button
+              onClick={onClose}
+              style={{ background: 'none', border: 'none', color: 'var(--color-muted)', cursor: 'pointer', fontSize: '0.75rem', lineHeight: 1 }}
+              aria-label="Cerrar panel"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 0.75rem' }}>
+          {loading && results.length === 0 && (
+            <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: '0.5rem', color: 'var(--color-muted)', padding: '1rem 0' }}>
+              VERIFICANDO FUENTES...
+            </div>
+          )}
+
+          {Object.entries(groups).map(([group, rows]) => (
+            <div key={group} style={{ marginBottom: '0.75rem' }}>
+              <div style={{
+                fontFamily: "'Share Tech Mono', monospace",
+                fontSize: '0.4375rem',
+                color: 'var(--color-muted)',
+                letterSpacing: '0.15em',
+                marginBottom: '0.25rem',
+                paddingBottom: '0.2rem',
+                borderBottom: '1px solid var(--color-slate)',
+              }}>
+                {group}
+              </div>
+              {rows.map(r => (
+                <div key={r.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                  padding: '0.3rem 0',
+                  borderBottom: '1px solid rgba(26,58,74,0.4)',
+                }}>
+                  <StatusDot status={r.status} size={6} />
+                  <span style={{
+                    flex: 1,
+                    fontFamily: "'Share Tech Mono', monospace",
+                    fontSize: '0.5rem',
+                    color: '#E0E8F0',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {r.name}
+                  </span>
+                  {r.httpStatus && (
+                    <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: '0.4375rem', color: '#607080' }}>
+                      {r.httpStatus}
+                    </span>
+                  )}
+                  <span style={{
+                    fontFamily: "'Share Tech Mono', monospace",
+                    fontSize: '0.4375rem',
+                    color: STATUS_COLOR[r.status],
+                    letterSpacing: '0.08em',
+                    flexShrink: 0,
+                    minWidth: 42,
+                    textAlign: 'right',
+                  }}>
+                    {STATUS_LABEL[r.status]}
+                  </span>
+                  <LatencyText ms={r.latencyMs} fontSize="0.4375rem" />
+                </div>
+              ))}
+            </div>
+          ))}
+
+          {/* Static sources not in health check */}
+          {results.length > 0 && (
+            <div style={{ marginBottom: '0.75rem' }}>
+              <div style={{
+                fontFamily: "'Share Tech Mono', monospace",
+                fontSize: '0.4375rem',
+                color: 'var(--color-muted)',
+                letterSpacing: '0.15em',
+                marginBottom: '0.25rem',
+                paddingBottom: '0.2rem',
+                borderBottom: '1px solid var(--color-slate)',
+              }}>
+                ESTÁTICAS
+              </div>
+              {STATIC_SOURCES.map(s => (
+                <div key={s.name} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                  padding: '0.3rem 0',
+                  borderBottom: '1px solid rgba(26,58,74,0.4)',
+                }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#00FF88', boxShadow: '0 0 4px #00FF88', flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontFamily: "'Share Tech Mono', monospace", fontSize: '0.5rem', color: '#E0E8F0' }}>{s.name}</span>
+                  <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: '0.4375rem', color: '#607080' }}>{s.note}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Modal variant — boot-sequence dialog ──────────────────────────────────
+
   const progressPct  = loading
     ? Math.min(95, Math.round((results.length / EXPECTED_TOTAL) * 100))
     : 100

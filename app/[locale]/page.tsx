@@ -10,7 +10,6 @@ import TimelineSlider from '@/components/map/controls/TimelineSlider'
 import HospitalStatusPanel from '@/components/panels/HospitalStatusPanel'
 import SituationReportModal from '@/components/panels/SituationReportModal'
 import InSARPanel from '@/components/panels/InSARPanel'
-import DataSourcesPanel from '@/components/panels/DataSourcesPanel'
 import SystemHealthModal from '@/components/ui/SystemHealthModal'
 import EMSR884Panel from '@/components/panels/EMSR884Panel'
 import SavedEventsPanel from '@/components/panels/SavedEventsPanel'
@@ -20,6 +19,7 @@ import {
   SAVED_EVENTS_CHANGE_EVENT, type SavedEvent,
 } from '@/lib/saved-events'
 import type { ZoneSnapshot } from '@/lib/zone-cache'
+import type { HospitalWithDistance } from '@/app/api/hospitals/route'
 import type { VisionMode } from '@/components/map/overlays/VisionModeOverlay'
 import { getEvent, EVENT_REGISTRY } from '@/lib/events/index'
 import { useIsMobile } from '@/hooks/useIsMobile'
@@ -74,7 +74,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [savedEventsPanelOpen, setSavedEventsPanelOpen] = useState(false)
   const [zoneSnapshot, setZoneSnapshot]                 = useState<ZoneSnapshot | null>(null)
   const [zoneDetailOpen, setZoneDetailOpen]             = useState(false)
-  const [mapTarget, setMapTarget] = useState<{ lat: number; lng: number; name: string } | null>(null)
+  const [mapTarget, setMapTarget] = useState<{ lat: number; lng: number; name: string; bbox?: [number, number, number, number] } | null>(null)
   const [liveEarthquakes, setLiveEarthquakes] = useState<{
     id: string; magnitude: number; depth: number; lat: number; lng: number
     time: number; place: string; classification: string
@@ -86,6 +86,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const [humanStats, setHumanStats] = useState<{
     fatalities: number; injured: number
   } | null>(null)
+  const [hospitals, setHospitals] = useState<HospitalWithDistance[]>([])
   const [viewportBbox, setViewportBbox] = useState<{
     minLat: number; maxLat: number; minLng: number; maxLng: number
   } | null>(null)
@@ -121,6 +122,24 @@ export default function DashboardPage({ params }: { params: { locale: string } }
       .catch(() => {})
   }, [activeEventId])
 
+  // Shared between StatsPanel (counts) and HospitalStatusPanel (full list) — fetched once
+  useEffect(() => {
+    fetch(`/api/hospitals?eventId=${activeEventId}`)
+      .then(r => r.json())
+      .then((data: HospitalWithDistance[]) => setHospitals(data))
+      .catch(() => {})
+  }, [activeEventId])
+
+  const hospitalCounts = useMemo(() => {
+    if (hospitals.length === 0) return null
+    return {
+      total: hospitals.length,
+      green: hospitals.filter(h => h.status === 'GREEN').length,
+      amber: hospitals.filter(h => h.status === 'AMBER').length,
+      red:   hospitals.filter(h => h.status === 'RED').length,
+    }
+  }, [hospitals])
+
   const handleLayerChange = useCallback((id: string, visible: boolean) => {
     setActiveLayers(prev => ({ ...prev, [id]: visible }))
     if (id === 'insar'    && visible) setInsarPanelOpen(true)
@@ -143,8 +162,8 @@ export default function DashboardPage({ params }: { params: { locale: string } }
     setDateFilter({ start: evDate, end: new Date().toISOString().slice(0, 10) })
   }, [])
 
-  const handleZoomTo = useCallback((lat: number, lng: number, name: string) => {
-    setMapTarget({ lat, lng, name })
+  const handleZoomTo = useCallback((lat: number, lng: number, name: string, bbox?: [number, number, number, number]) => {
+    setMapTarget({ lat, lng, name, bbox })
   }, [])
 
   const handleSavedEventSelect = useCallback((ev: SavedEvent) => {
@@ -277,6 +296,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
       dataStream={dataStream}
       pinnedEvents={pinnedEvents}
       isKnownEvent={isKnownEventArea}
+      hospitalCounts={hospitalCounts}
       onHospitalDetailOpen={() => setHospitalPanelOpen(true)}
       zoneSnapshot={zoneSnapshot}
       onClearZone={() => { setZoneSnapshot(null); setZoneDetailOpen(false) }}
@@ -289,6 +309,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
     isConnected={true}
     viewportLocation={viewportLocation}
     isKnownEvent={isKnownEventArea}
+    zoneSnapshot={zoneSnapshot}
   />
 
   const mapEl = (
@@ -444,6 +465,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         visible={hospitalPanelOpen}
         onClose={() => setHospitalPanelOpen(false)}
         eventId={activeEventId}
+        hospitals={hospitals}
         onSelectHospital={(lat, lng, _id, name) => {
           setMapTarget({ lat, lng, name })
           setHospitalPanelOpen(false)
@@ -464,11 +486,12 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         onJobReady={handleInsarJobReady}
       />
 
-      <DataSourcesPanel
-        visible={dataSourcesPanelOpen}
-        onClose={() => setDataSourcesPanelOpen(false)}
-        eventId={activeEventId}
-      />
+      {dataSourcesPanelOpen && (
+        <SystemHealthModal
+          variant="panel"
+          onClose={() => setDataSourcesPanelOpen(false)}
+        />
+      )}
 
       {systemHealthOpen && (
         <SystemHealthModal

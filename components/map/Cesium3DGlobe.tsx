@@ -76,7 +76,7 @@ interface Cesium3DGlobeProps {
   onSelect?: (obj: SelectedMapObject | null) => void
   onViewportChange?: (bbox: ViewportBbox) => void
   eventId?: string
-  flyTo?: { lat: number; lng: number; name?: string } | null
+  flyTo?: { lat: number; lng: number; name?: string; bbox?: [number, number, number, number] } | null
   // Air traffic
   aircraft?: AircraftState[]
   flightRoute?: FlightRoute | null
@@ -89,6 +89,7 @@ interface Cesium3DGlobeProps {
   boundaries?: (AdminBoundary & { population: number | null })[]
   usaidDeclarations?: UsaidDeclaration[]
   ftsFlows?: FtsFlow[]
+  satellitePasses?: SatellitePass[]
 }
 
 export default function Cesium3DGlobe({
@@ -112,6 +113,7 @@ export default function Cesium3DGlobe({
   boundaries = [],
   usaidDeclarations = [],
   ftsFlows = [],
+  satellitePasses = [],
 }: Cesium3DGlobeProps) {
   const containerRef         = useRef<HTMLDivElement>(null)
   const viewerRef            = useRef<CesiumViewer | null>(null)
@@ -859,16 +861,8 @@ export default function Cesium3DGlobe({
 
       if (!(activeLayers.satellites ?? false)) return
 
-      // Fetch TLE + pass data
-      let passes: SatellitePass[] = []
-      try {
-        const res = await fetch(`/api/satellites?eventId=${eventId}`)
-        if (res.ok) {
-          const d = await res.json() as { satellites?: SatellitePass[] }
-          passes = d.satellites ?? []
-        }
-      } catch { /* Celestrak unavailable */ }
-
+      // TLE + pass data lifted from GeoVigilMap (shared with MapLibreMap — no per-component fetch)
+      const passes = satellitePasses
       satellitePassesRef.current = passes
 
       const C_SAT = '#00B4FF' // --color-cyan
@@ -1006,7 +1000,7 @@ export default function Cesium3DGlobe({
 
     render()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cesiumReady, activeLayers.satellites, eventId])
+  }, [cesiumReady, activeLayers.satellites, satellitePasses])
 
   // ── Aircraft in 3D — icons + flag labels ─────────────────────────────────
   useEffect(() => {
@@ -1487,16 +1481,27 @@ export default function Cesium3DGlobe({
   }, [cesiumReady, activeLayers.funding, ftsFlows])
 
   // ── FlyTo target (zone search / saved events) ─────────────────────────────
+  // Fits the place's actual extent (bbox) when available so a country search
+  // doesn't end up zoomed to a city block; falls back to a fixed altitude
+  // point view otherwise.
   useEffect(() => {
     if (!cesiumReady || !viewerRef.current || !flyTo) return
     const viewer = viewerRef.current
     if (viewer.isDestroyed()) return
     import('cesium').then(CesiumLib => {
       if (viewer.isDestroyed()) return
-      viewer.camera.flyTo({
-        destination: CesiumLib.Cartesian3.fromDegrees(flyTo.lng, flyTo.lat, 80_000),
-        duration: 1.5,
-      })
+      if (flyTo.bbox) {
+        const [minLat, maxLat, minLng, maxLng] = flyTo.bbox
+        viewer.camera.flyTo({
+          destination: CesiumLib.Rectangle.fromDegrees(minLng, minLat, maxLng, maxLat),
+          duration: 1.5,
+        })
+      } else {
+        viewer.camera.flyTo({
+          destination: CesiumLib.Cartesian3.fromDegrees(flyTo.lng, flyTo.lat, 80_000),
+          duration: 1.5,
+        })
+      }
     }).catch(() => {})
   }, [cesiumReady, flyTo])
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { fetchGDELTNews } from '@/lib/gdelt'
 import { fetchReliefWebReports } from '@/lib/reliefweb'
 import { fetchMultiSourceNews } from '@/lib/rss-news'
-import { fetchMapillaryImages, fetchWikimediaImages, buildSatelliteImages } from '@/lib/imagery'
+import { fetchMapillaryImages, fetchWikimediaImages, fetchSentinelImages, buildCloseAerialImage } from '@/lib/imagery'
 import { extractZoneInsights } from '@/lib/zone-ai-extract'
 
 export const runtime = 'nodejs'
@@ -74,6 +74,20 @@ export async function GET(req: NextRequest) {
   // Keywords for filtering RSS
   const baseKeywords = ['earthquake', 'terremoto', 'sismo', 'seismic']
 
+  // Aerial/satellite imagery needs to stay near the analyzed point, not span
+  // the whole (possibly country-sized) zone bbox — otherwise "before/after"
+  // shots end up as a distant continental swath instead of a close view.
+  const CLOSE_SPAN = 0.5 // degrees (~55km)
+  const closeMinLat = lat - CLOSE_SPAN, closeMaxLat = lat + CLOSE_SPAN
+  const closeMinLng = lng - CLOSE_SPAN, closeMaxLng = lng + CLOSE_SPAN
+
+  // Mapillary caps queries at 0.01 sq degrees total area — a box this size
+  // (~10km) was silently rejecting every request with a 500 when it got the
+  // same CLOSE_SPAN box as satellite imagery above.
+  const MAPILLARY_SPAN = 0.045 // degrees (~5km) — building-level street photos
+  const mapMinLat = lat - MAPILLARY_SPAN, mapMaxLat = lat + MAPILLARY_SPAN
+  const mapMinLng = lng - MAPILLARY_SPAN, mapMaxLng = lng + MAPILLARY_SPAN
+
   // 2. Fetch everything in parallel
   const mapillaryToken = process.env.MAPILLARY_CLIENT_TOKEN
 
@@ -84,6 +98,7 @@ export async function GET(req: NextRequest) {
     mapillaryBeforeResult,
     mapillaryAfterResult,
     wikimediaResult,
+    sentinelResult,
   ] = await Promise.allSettled([
     // GDELT — best for geo-keyword news (includes Reuters, AP, AFP)
     fetchGDELTNews(
@@ -92,16 +107,18 @@ export async function GET(req: NextRequest) {
         : 'earthquake terremoto sismo',
       { maxRecords: limit, timespanMinutes: 10080 }
     ),
-    // RSS multi-source (BBC + Al Jazeera + EMSC)
-    fetchMultiSourceNews(country, baseKeywords),
+    // RSS multi-source (BBC + Al Jazeera + EMSC) — EMSC filtered to this zone's bbox
+    fetchMultiSourceNews(country, baseKeywords, [minLat, maxLat, minLng, maxLng]),
     // ReliefWeb humanitarian reports
     iso3 ? fetchReliefWebReports(iso3, 8) : Promise.resolve([]),
-    // Mapillary before-event street photos
-    fetchMapillaryImages(minLat, minLng, maxLat, maxLng, 'before', eventTime, mapillaryToken),
+    // Mapillary before-event street photos — ground-level, buildings actually visible
+    fetchMapillaryImages(mapMinLat, mapMinLng, mapMaxLat, mapMaxLng, 'before', eventTime, mapillaryToken),
     // Mapillary after-event street photos (more images)
-    fetchMapillaryImages(minLat, minLng, maxLat, maxLng, 'after', eventTime, mapillaryToken),
+    fetchMapillaryImages(mapMinLat, mapMinLng, mapMaxLat, mapMaxLng, 'after', eventTime, mapillaryToken),
     // Wikimedia Commons context images
     fetchWikimediaImages(lat, lng, Math.min((maxLat - minLat) * 110 * 0.5, 200)),
+    // Sentinel-2 close aerial before/after (~10m resolution vs. GIBS' ~375m)
+    fetchSentinelImages([closeMinLng, closeMinLat, closeMaxLng, closeMaxLat], eventTime),
   ])
 
   // Merge news sources — GDELT + RSS, deduplicate, sort by recency
@@ -119,13 +136,22 @@ export async function GET(req: NextRequest) {
   const mapBefore  = mapillaryBeforeResult.status === 'fulfilled' ? mapillaryBeforeResult.value : []
   const mapAfter   = mapillaryAfterResult.status  === 'fulfilled' ? mapillaryAfterResult.value  : []
   const wikimedia  = wikimediaResult.status        === 'fulfilled' ? wikimediaResult.value       : []
-  const satellite  = buildSatelliteImages(minLat, minLng, maxLat, maxLng, eventTime)
+  // Sentinel-2 (~10m, close to the point) is the real "bird's eye" shot.
+  // NASA GIBS (~375m, wide continental swath) is disabled — too far out to
+  // be useful next to street-level/close-aerial sources.
+  const satellite  = sentinelResult.status === 'fulfilled' ? sentinelResult.value : []
 
-  // Target ratio: 1 before : 3 after. Max 12 images total.
+  // Street-level (Mapillary) is the only source where buildings are actually
+  // visible — leads when available. ESRI is a close (sub-meter where covered)
+  // current-only reference shot that's always available (no API key/quota),
+  // for when Mapillary has no coverage. Sentinel-2 is broader before/after
+  // context; Wikimedia fills in last.
+  const closeAerial = buildCloseAerialImage(lat, lng)
   const images = [
-    ...satellite,                      // 1-2 before + 3-4 after
     ...mapBefore.slice(0, 2),
     ...mapAfter.slice(0, 5),
+    closeAerial,
+    ...satellite,                      // 1-2 before + 3-4 after
     ...wikimedia.slice(0, 4),
   ]
 
@@ -152,6 +178,7 @@ export async function GET(req: NextRequest) {
       mapillary: mapBefore.length + mapAfter.length,
       wikimedia: wikimedia.length,
       satellite: satellite.length,
+      esri:      1,
     },
     fetchedAt: Date.now(),
   })

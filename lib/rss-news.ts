@@ -64,11 +64,18 @@ export async function fetchAlJazeeraNews(keywords: string[]): Promise<NewsItem[]
 // Use the live seismicportal.eu FDSN JSON API instead — same data, same
 // source already used by lib/emsc.ts for the map layer — and synthesize
 // NewsItem-shaped entries from significant recent earthquakes worldwide.
-export async function fetchEMSCQuakeNews(): Promise<NewsItem[]> {
+export async function fetchEMSCQuakeNews(bbox?: [number, number, number, number]): Promise<NewsItem[]> {
   try {
     const qs = new URLSearchParams({
       format: 'json', minmag: '4.0', limit: '15', orderby: 'time',
     })
+    if (bbox) {
+      const [minLat, maxLat, minLng, maxLng] = bbox
+      qs.set('minlat', minLat.toString())
+      qs.set('maxlat', maxLat.toString())
+      qs.set('minlon', minLng.toString())
+      qs.set('maxlon', maxLng.toString())
+    }
     const res = await fetch(
       `https://www.seismicportal.eu/fdsnws/event/1/query?${qs.toString()}`,
       { signal: AbortSignal.timeout(8_000) }
@@ -104,14 +111,15 @@ export async function fetchReliefWebRSS(country: string): Promise<NewsItem[]> {
 
 export async function fetchMultiSourceNews(
   country: string,
-  keywords: string[]
+  keywords: string[],
+  bbox?: [number, number, number, number]
 ): Promise<NewsItem[]> {
   const allKw = [country.toLowerCase(), ...keywords.map(k => k.toLowerCase())]
 
   const [bbc, aje, emsc] = await Promise.allSettled([
     fetchBBCNews(allKw),
     fetchAlJazeeraNews(allKw),
-    fetchEMSCQuakeNews(),
+    fetchEMSCQuakeNews(bbox),
   ])
 
   const merged: NewsItem[] = []

@@ -174,7 +174,8 @@ function ImageTile({ img, onOpen }: { img: ZoneImage; onOpen: (img: ZoneImage) =
         padding:          '0.1rem 0.25rem',
         pointerEvents:    'none',
       }}>
-        {img.source === 'nasa-gibs' ? 'NASA GIBS'
+        {img.source === 'sentinel2' ? 'SENTINEL-2'
+        : img.source === 'esri' ? 'ESRI'
         : img.source === 'mapillary' ? 'MAPILLARY'
         : 'WIKIMEDIA'}
       </div>
@@ -225,9 +226,10 @@ export default function ZoneAnalysisPanel({ visible, snapshot, onClose }: ZoneAn
 
   const { zone, news, reports, images, aiExtract } = snapshot
 
-  const satImages     = images.filter(i => i.source === 'nasa-gibs')
+  const satImages     = images.filter(i => i.source === 'sentinel2')
   const streetImages  = images.filter(i => i.source === 'mapillary')
-  const contextImages = images.filter(i => i.phase === 'context')
+  const esriImages    = images.filter(i => i.source === 'esri')
+  const contextImages = images.filter(i => i.source === 'wikimedia')
   const wikiImages    = images.filter(i => i.source === 'wikimedia')
   const beforeImages  = images.filter(i => i.phase === 'before')
   const afterImages   = images.filter(i => i.phase === 'after')
@@ -411,7 +413,7 @@ export default function ZoneAnalysisPanel({ visible, snapshot, onClose }: ZoneAn
             {satImages.length > 0 && (
               <div style={{ marginBottom: '1rem' }}>
                 <SectionLabel>
-                  🛰 SATÉLITE NASA GIBS · {satImages.filter(i => i.phase === 'before').length} ANTES · {satImages.filter(i => i.phase === 'after').length} DESPUÉS
+                  🛰 SATÉLITE SENTINEL-2 (VISTA CERCANA) · {satImages.filter(i => i.phase === 'before').length} ANTES · {satImages.filter(i => i.phase === 'after').length} DESPUÉS
                 </SectionLabel>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
                   {satImages.slice(0, 8).map(img => (
@@ -429,6 +431,18 @@ export default function ZoneAnalysisPanel({ visible, snapshot, onClose }: ZoneAn
                 </SectionLabel>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
                   {streetImages.slice(0, 6).map(img => (
+                    <ImageTile key={img.id} img={img} onOpen={setLightboxImg} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ESRI close aerial — current-only, no API key, fills in where Mapillary has no coverage */}
+            {esriImages.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <SectionLabel>◫ VISTA AÉREA CERCANA (ESRI) · SOLO ACTUAL</SectionLabel>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                  {esriImages.map(img => (
                     <ImageTile key={img.id} img={img} onOpen={setLightboxImg} />
                   ))}
                 </div>
@@ -541,8 +555,9 @@ export default function ZoneAnalysisPanel({ visible, snapshot, onClose }: ZoneAn
             <span>BBC+AJE+EMSC · {news.filter(n => ['BBC News','Al Jazeera','EMSC'].includes(n.source)).length}</span>
             <span>ReliefWeb · {reports.length}</span>
             <span>Mapillary · {streetImages.length}</span>
+            <span>ESRI · {esriImages.length}</span>
             <span>Wikimedia · {wikiImages.length}</span>
-            <span>NASA GIBS · {satImages.length}</span>
+            <span>Sentinel-2 · {satImages.length}</span>
           </div>
         </div>
       </div>

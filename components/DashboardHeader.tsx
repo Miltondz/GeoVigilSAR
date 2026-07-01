@@ -19,7 +19,7 @@ interface DashboardHeaderProps {
   activeLayers: Record<string, boolean>
   onLayersChange: (id: string, visible: boolean) => void
   onEventChange: (eventId: string) => void
-  onZoomTo?: (lat: number, lng: number, name: string) => void
+  onZoomTo?: (lat: number, lng: number, name: string, bbox?: [number, number, number, number]) => void
   onSitrepOpen?: () => void
   onDataSourcesOpen?: () => void
   onSystemHealthOpen?: () => void
@@ -171,7 +171,7 @@ export default function DashboardHeader({
                 ◈ EVENTOS
               </button>
             )}
-            <ZoneSearch onResult={r => onZoomTo?.(r.lat, r.lng, r.name)} placeholder={locale === 'es' ? 'BUSCAR ZONA...' : 'SEARCH ZONE...'} />
+            <ZoneSearch onResult={r => onZoomTo?.(r.lat, r.lng, r.name, r.bbox)} placeholder={locale === 'es' ? 'BUSCAR ZONA...' : 'SEARCH ZONE...'} />
             {onSystemHealthOpen && (
               <button onClick={onSystemHealthOpen} title="Estado de conexiones" style={{
                 fontFamily: 'var(--font-hud)', fontSize: '0.625rem', letterSpacing: '0.15em',
@@ -276,7 +276,7 @@ export default function DashboardHeader({
             {/* Zone search */}
             <div>
               <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5625rem', color: 'var(--color-muted)', letterSpacing: '0.12em', marginBottom: '0.375rem' }}>BUSCAR ZONA</div>
-              <ZoneSearch onResult={r => { onZoomTo?.(r.lat, r.lng, r.name); closeMenu() }} placeholder={locale === 'es' ? 'BUSCAR ZONA...' : 'SEARCH ZONE...'} />
+              <ZoneSearch onResult={r => { onZoomTo?.(r.lat, r.lng, r.name, r.bbox); closeMenu() }} placeholder={locale === 'es' ? 'BUSCAR ZONA...' : 'SEARCH ZONE...'} />
             </div>
 
             <div style={{ height: 1, backgroundColor: 'var(--color-slate)' }} />

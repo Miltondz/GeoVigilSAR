@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react'
 import NewsStream from './NewsStream'
+import type { ZoneSnapshot } from '@/lib/zone-cache'
 
 interface Message {
   role: 'system' | 'user'
@@ -13,16 +14,36 @@ interface AIPanelProps {
   isConnected?: boolean
   viewportLocation?: string
   isKnownEvent?: boolean
+  zoneSnapshot?: ZoneSnapshot | null
 }
 
-const SUGGESTED = [
-  '¿Qué zonas tienen mayor riesgo de réplica?',
-  '¿Qué reportan medios sobre La Guaira?',
-  '¿Cuántos rescatados en Caracas?',
-]
+function buildSuggested(isKnownEvent: boolean, zoneName?: string): string[] {
+  if (isKnownEvent) {
+    return [
+      '¿Qué zonas tienen mayor riesgo de réplica?',
+      '¿Qué reportan medios sobre La Guaira?',
+      '¿Cuántos rescatados en Caracas?',
+    ]
+  }
+  const place = zoneName ?? 'esta zona'
+  return [
+    `¿Qué sismos recientes hay en ${place}?`,
+    `¿Qué reportan medios sobre ${place}?`,
+    `¿Hay alertas humanitarias activas en ${place}?`,
+  ]
+}
 
-function buildWelcome(eventId: string) {
-  return `Sistema listo. Evento ${eventId} cargado.\nFuentes activas: USGS · GDELT · ReliefWeb · Copernicus EMS.`
+function buildWelcome(eventId: string, isKnownEvent: boolean, zoneName?: string) {
+  return isKnownEvent
+    ? `Sistema listo. Evento ${eventId} cargado.\nFuentes activas: USGS · GDELT · ReliefWeb · Copernicus EMS.`
+    : `Sistema listo. Zona en vista: ${zoneName ?? 'sin analizar'}.\nFuentes activas: USGS · GDELT · ReliefWeb · Copernicus EMS.`
+}
+
+function formatRelativeTime(publishedAt: number, now: number): string {
+  const diffMin = Math.round((now - publishedAt) / 60000)
+  if (diffMin < 60)   return `hace ${diffMin}m`
+  if (diffMin < 1440) return `hace ${Math.round(diffMin / 60)}h`
+  return `hace ${Math.round(diffMin / 1440)}d`
 }
 
 interface NewsItem {
@@ -33,8 +54,9 @@ interface NewsItem {
   lang?: string
 }
 
-export default function AIPanel({ eventId, isConnected = false, viewportLocation, isKnownEvent = true }: AIPanelProps) {
-  const welcomeContent = buildWelcome(eventId)
+export default function AIPanel({ eventId, isConnected = false, viewportLocation, isKnownEvent = true, zoneSnapshot }: AIPanelProps) {
+  const zoneName = zoneSnapshot?.zone.country
+  const welcomeContent = buildWelcome(eventId, isKnownEvent, zoneName)
   const [messages, setMessages]           = useState<Message[]>([{ role: 'system', content: welcomeContent }])
   const [input, setInput]                 = useState('')
   const [loading, setLoading]             = useState(false)
@@ -42,21 +64,33 @@ export default function AIPanel({ eventId, isConnected = false, viewportLocation
   const bottomRef                         = useRef<HTMLDivElement>(null)
   const [newsItems, setNewsItems]         = useState<NewsItem[]>([])
 
+  // News reflects the zone in view: a manual zone analysis (ANALIZAR ZONA)
+  // takes priority since it's scoped to the exact viewport; otherwise fall
+  // back to the known event's news feed, or nothing when browsing elsewhere
+  // without an analysis yet.
   useEffect(() => {
+    const now = Date.now()
+
+    if (zoneSnapshot) {
+      setNewsItems(zoneSnapshot.news.slice(0, 10).map(item => ({
+        title: item.title, source: item.source, url: item.url, lang: item.language,
+        timeStr: formatRelativeTime(item.publishedAt, now),
+      })))
+      return
+    }
+
+    if (!isKnownEvent) { setNewsItems([]); return }
+
     fetch(`/api/news?eventId=${eventId}&limit=10`)
       .then(r => r.json())
       .then((d: { items?: { title: string; source: string; publishedAt: number; url: string; language: string }[] }) => {
-        const now = Date.now()
-        setNewsItems((d.items ?? []).map(item => {
-          const diffMin = Math.round((now - item.publishedAt) / 60000)
-          const timeStr = diffMin < 60
-            ? `hace ${diffMin}m`
-            : diffMin < 1440 ? `hace ${Math.round(diffMin / 60)}h` : `hace ${Math.round(diffMin / 1440)}d`
-          return { title: item.title, source: item.source, timeStr, url: item.url, lang: item.language }
-        }))
+        const fetchedAt = Date.now()
+        setNewsItems((d.items ?? []).map(item => ({
+          title: item.title, source: item.source, timeStr: formatRelativeTime(item.publishedAt, fetchedAt), url: item.url, lang: item.language,
+        })))
       })
       .catch(() => {})
-  }, [eventId])
+  }, [eventId, zoneSnapshot, isKnownEvent])
 
   const send = async (text: string) => {
     if (!text.trim() || loading) return
@@ -223,7 +257,7 @@ export default function AIPanel({ eventId, isConnected = false, viewportLocation
         <div style={{ fontFamily: 'var(--font-hud)', fontSize: '0.5625rem', color: 'var(--color-muted)', letterSpacing: '0.12em', marginBottom: '0.125rem' }}>
           CONSULTAS RÁPIDAS
         </div>
-        {SUGGESTED.map(q => (
+        {buildSuggested(isKnownEvent, zoneName).map(q => (
           <button
             key={q}
             onClick={() => send(q)}

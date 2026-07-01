@@ -1,18 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-
-interface HospitalWithDistance {
-  osmId: string
-  name: string
-  lat: number
-  lng: number
-  status: 'GREEN' | 'AMBER' | 'RED'
-  capacity?: number
-  source: string
-  updatedMs: number
-  distanceKm: number
-}
+import { useState } from 'react'
+import type { HospitalWithDistance } from '@/app/api/hospitals/route'
 
 interface AIResult {
   status: 'GREEN' | 'AMBER' | 'RED'
@@ -24,6 +13,7 @@ interface HospitalStatusPanelProps {
   visible: boolean
   onClose: () => void
   eventId: string
+  hospitals: HospitalWithDistance[]
   onSelectHospital?: (lat: number, lng: number, id: string, name: string) => void
 }
 
@@ -33,23 +23,10 @@ const statusBadge: Record<'GREEN' | 'AMBER' | 'RED', { label: string; color: str
   RED:   { label: 'NO OPERATIVO', color: '#ffffff', bg: 'var(--color-red)'   },
 }
 
-export default function HospitalStatusPanel({ visible, onClose, eventId, onSelectHospital }: HospitalStatusPanelProps) {
-  const [hospitals, setHospitals] = useState<HospitalWithDistance[]>([])
-  const [loading, setLoading] = useState(true)
+export default function HospitalStatusPanel({ visible, onClose, eventId, hospitals, onSelectHospital }: HospitalStatusPanelProps) {
   const [analyzing, setAnalyzing] = useState<string | null>(null)
   const [aiResults, setAiResults] = useState<Record<string, AIResult>>({})
-
-  useEffect(() => {
-    if (!visible) return
-    setLoading(true)
-    fetch(`/api/hospitals?eventId=${eventId}`)
-      .then(r => r.json())
-      .then((data: HospitalWithDistance[]) => {
-        setHospitals(data)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [visible, eventId])
+  const loading = hospitals.length === 0
 
   async function analyzeHospital(osmId: string) {
     setAnalyzing(osmId)
